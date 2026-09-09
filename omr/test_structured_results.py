@@ -12,7 +12,7 @@ class StructuredGradingResultsTests(unittest.TestCase):
             3: "MULTIPLE",
             4: "A",
         }
-        answer_key = {question_number: "A" for question_number in range(1, 21)}
+        answer_key = {question_number: "A" for question_number in range(1, 51)}
         answer_key.update({
             1: "A",
             2: "B",
@@ -27,13 +27,13 @@ class StructuredGradingResultsTests(unittest.TestCase):
         )
 
         self.assertEqual(result["source_file"], "samples/example.png")
-        self.assertEqual(result["total_questions"], 20)
+        self.assertEqual(result["total_questions"], 50)
         self.assertEqual(result["score"], 1)
         self.assertEqual(result["correct"], 1)
-        self.assertEqual(result["wrong"], 19)
+        self.assertEqual(result["wrong"], 49)
         self.assertEqual(result["blank"], 1)
         self.assertEqual(result["multiple"], 1)
-        self.assertEqual(len(result["questions"]), 20)
+        self.assertEqual(len(result["questions"]), 50)
         self.assertEqual(result["questions"][0], {
             "question_number": 1,
             "student_answer": "A",

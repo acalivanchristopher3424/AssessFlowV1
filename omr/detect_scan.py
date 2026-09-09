@@ -4,6 +4,25 @@ import sys
 import cv2
 import numpy as np
 
+try:
+    from .layout import (
+        CHOICES,
+        PAGE_HEIGHT as REFERENCE_HEIGHT,
+        PAGE_WIDTH as REFERENCE_WIDTH,
+        QUESTIONS,
+        SAMPLE_RADIUS,
+        get_question_bubble_position,
+    )
+except ImportError:
+    from layout import (
+        CHOICES,
+        PAGE_HEIGHT as REFERENCE_HEIGHT,
+        PAGE_WIDTH as REFERENCE_WIDTH,
+        QUESTIONS,
+        SAMPLE_RADIUS,
+        get_question_bubble_position,
+    )
+
 
 # ============================================================
 # AssessFlow V1 — Scanned OMR Detector
@@ -21,35 +40,6 @@ import numpy as np
 # ============================================================
 # STANDARD ANSWER SHEET
 # ============================================================
-
-REFERENCE_WIDTH = 2480
-REFERENCE_HEIGHT = 3508
-
-QUESTIONS = 20
-CHOICES = ["A", "B", "C", "D"]
-
-
-# ============================================================
-# BUBBLE POSITIONS
-# ============================================================
-
-CHOICE_X = {
-    "A": 850,
-    "B": 1200,
-    "C": 1550,
-    "D": 1900,
-}
-
-GRID_TOP = 550
-ROW_HEIGHT = 125
-BUBBLE_Y_OFFSET = 90
-
-
-# ============================================================
-# BUBBLE SAMPLING
-# ============================================================
-
-SAMPLE_RADIUS = 11
 
 DARK_PIXEL_THRESHOLD = 180
 
@@ -448,19 +438,9 @@ def get_bubble_position(
     question_number,
     choice,
 ):
-    """Return the center of a bubble."""
+    """Return the center of a bubble in the shared sheet layout."""
 
-    x = CHOICE_X[choice]
-
-    y = (
-        GRID_TOP
-        + BUBBLE_Y_OFFSET
-        + (
-            question_number - 1
-        ) * ROW_HEIGHT
-    )
-
-    return x, y
+    return get_question_bubble_position(question_number, choice)
 
 
 # ============================================================

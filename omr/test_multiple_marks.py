@@ -2,6 +2,11 @@ from pathlib import Path
 
 import cv2
 
+try:
+    from .layout import get_question_bubble_position
+except ImportError:
+    from layout import get_question_bubble_position
+
 
 # ============================================================
 # AssessFlow V1 — Multiple Mark Test
@@ -12,7 +17,7 @@ PROJECT_DIR = Path(__file__).resolve().parent.parent
 INPUT_FILE = (
     PROJECT_DIR
     / "samples"
-    / "aligned_scan.png"
+    / "answer_sheet.png"
 )
 
 OUTPUT_FILE = (
@@ -20,22 +25,6 @@ OUTPUT_FILE = (
     / "samples"
     / "multiple_mark_test.png"
 )
-
-
-# ============================================================
-# Same bubble positions used by detect_scan.py
-# ============================================================
-
-CHOICE_X = {
-    "A": 850,
-    "B": 1200,
-    "C": 1550,
-    "D": 1900,
-}
-
-GRID_TOP = 550
-ROW_HEIGHT = 125
-BUBBLE_Y_OFFSET = 90
 
 
 # ============================================================
@@ -55,29 +44,11 @@ def create_test():
         )
 
     # --------------------------------------------------------
-    # We will deliberately add A to Question 7.
-    #
-    # Question 7 already has B shaded.
-    #
-    # Therefore:
-    #
-    # Q7 = A + B
-    #
-    # The detector should report MULTIPLE.
+    # Add A and L to Question 7. The detector should report MULTIPLE.
     # --------------------------------------------------------
 
     question_number = 7
-    choice = "A"
-
-    x = CHOICE_X[choice]
-
-    y = (
-        GRID_TOP
-        + BUBBLE_Y_OFFSET
-        + (
-            question_number - 1
-        ) * ROW_HEIGHT
-    )
+    choices = ["A", "L"]
 
     # --------------------------------------------------------
     # Fill the A bubble.
@@ -86,13 +57,9 @@ def create_test():
     # We use 17 so the mark resembles the existing shading.
     # --------------------------------------------------------
 
-    cv2.circle(
-        image,
-        (x, y),
-        17,
-        (70, 70, 70),
-        -1,
-    )
+    for choice in choices:
+        x, y = get_question_bubble_position(question_number, choice)
+        cv2.circle(image, (x, y), 13, (70, 70, 70), -1)
 
     # --------------------------------------------------------
     # Save separate test image.
@@ -110,15 +77,11 @@ def create_test():
     print()
 
     print(
-        "Question 7 has been given an additional A mark."
+        "Question 7 has been given A and L marks."
     )
 
     print(
-        "Original Q7: B"
-    )
-
-    print(
-        "Test Q7:     A + B"
+        "Test Q7:     A + L"
     )
 
     print()

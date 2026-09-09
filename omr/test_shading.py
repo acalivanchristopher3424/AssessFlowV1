@@ -2,6 +2,11 @@ from pathlib import Path
 
 import cv2
 
+try:
+    from .layout import get_question_bubble_position
+except ImportError:
+    from layout import get_question_bubble_position
+
 
 # ============================================================
 # AssessFlow V1 — OMR Shading Test
@@ -11,33 +16,6 @@ PROJECT_DIR = Path(__file__).resolve().parent.parent
 
 SOURCE_FILE = PROJECT_DIR / "samples" / "answer_sheet.png"
 OUTPUT_FILE = PROJECT_DIR / "samples" / "shaded_test.png"
-
-
-# These coordinates must match generate_sheet.py
-CHOICE_X = {
-    "A": 850,
-    "B": 1200,
-    "C": 1550,
-    "D": 1900,
-}
-
-GRID_TOP = 550
-ROW_HEIGHT = 125
-BUBBLE_Y_OFFSET = 90
-
-
-def get_bubble_position(question_number, choice):
-    """Return the center of a bubble."""
-
-    x = CHOICE_X[choice]
-
-    y = (
-        GRID_TOP
-        + BUBBLE_Y_OFFSET
-        + (question_number - 1) * ROW_HEIGHT
-    )
-
-    return x, y
 
 
 def create_shaded_test():
@@ -62,9 +40,9 @@ def create_shaded_test():
 
     test_answers = {
         1: "A",
-        2: "B",
-        3: "C",
-        4: "D",
+        2: "L",
+        26: "G",
+        50: "B",
     }
 
     # --------------------------------------------------------
@@ -73,7 +51,7 @@ def create_shaded_test():
 
     for question, choice in test_answers.items():
 
-        x, y = get_bubble_position(
+        x, y = get_question_bubble_position(
             question,
             choice,
         )
@@ -106,4 +84,4 @@ def create_shaded_test():
 
 
 if __name__ == "__main__":
-    create_shaded_test()    
+    create_shaded_test()
