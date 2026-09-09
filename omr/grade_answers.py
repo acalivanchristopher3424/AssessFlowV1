@@ -1,14 +1,25 @@
 from pathlib import Path
+from contextlib import redirect_stdout
+import io
+import json
 import sys
 
 import cv2
 
-from detect_scan import (
-    align_scan,
-    load_image,
-    detect_question_answer,
-    QUESTIONS,
-)
+try:
+    from .detect_scan import (
+        align_scan,
+        load_image,
+        detect_question_answer,
+        QUESTIONS,
+    )
+except ImportError:
+    from detect_scan import (
+        align_scan,
+        load_image,
+        detect_question_answer,
+        QUESTIONS,
+    )
 
 
 # ============================================================
@@ -144,6 +155,58 @@ def grade_answers(student_answers, answer_key):
     )
 
 
+def create_grading_result(student_answers, answer_key, source_file=None):
+    """Return a JSON-serializable grading result for storage or an API."""
+
+    (
+        score,
+        correct,
+        wrong,
+        blank,
+        multiple,
+        question_results,
+    ) = grade_answers(student_answers, answer_key)
+
+    questions = []
+
+    for question_number in range(1, QUESTIONS + 1):
+        question = question_results[question_number]
+
+        questions.append({
+            "question_number": question_number,
+            "student_answer": question["student"],
+            "correct_answer": question["correct"],
+            "result": question["result"],
+        })
+
+    return {
+        "source_file": str(source_file) if source_file else None,
+        "total_questions": QUESTIONS,
+        "score": score,
+        "percentage": (score / QUESTIONS) * 100,
+        "correct": correct,
+        "wrong": wrong,
+        "blank": blank,
+        "multiple": multiple,
+        "questions": questions,
+    }
+
+
+def grade_scan(input_file, answer_key=None):
+    """Detect and grade one scan, returning a structured result."""
+
+    if answer_key is None:
+        answer_key = load_answer_key()
+
+    student_answers = detect_student_answers(input_file)
+
+    return create_grading_result(
+        student_answers,
+        answer_key,
+        source_file=input_file,
+    )
+
+
 def display_results(student_answers, answer_key):
     """Display the final grading results."""
 
@@ -227,10 +290,12 @@ def display_results(student_answers, answer_key):
 
 def main():
 
-    if len(sys.argv) > 1:
+    arguments = [argument for argument in sys.argv[1:] if argument != "--json"]
+
+    if arguments:
 
         input_file = Path(
-            sys.argv[1]
+            arguments[0]
         )
 
     else:
@@ -241,6 +306,14 @@ def main():
             / "my_scan.jpeg"
         )
 
+    json_output = "--json" in sys.argv
+
+    if json_output:
+        with redirect_stdout(io.StringIO()):
+            structured_result = grade_scan(input_file)
+        print(json.dumps(structured_result, indent=2))
+        return
+
     print()
     print(
         f"Processing: {input_file}"
@@ -250,16 +323,14 @@ def main():
         f"Answer key: {ANSWER_KEY_FILE}"
     )
 
-    answer_key = load_answer_key()
+    structured_result = grade_scan(input_file)
 
-    student_answers = detect_student_answers(
-        input_file
-    )
+    student_answers = {
+        question["question_number"]: question["student_answer"]
+        for question in structured_result["questions"]
+    }
 
-    display_results(
-        student_answers,
-        answer_key,
-    )
+    display_results(student_answers, load_answer_key())
 
 
 if __name__ == "__main__":
