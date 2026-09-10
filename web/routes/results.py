@@ -7,7 +7,7 @@ results_bp = Blueprint("results", __name__)
 
 @results_bp.route("/assessments/<int:assessment_id>/results")
 def list_results(assessment_id):
-    """List all grading results for an assessment."""
+    """List all grading results for an assessment with dashboard stats."""
     with current_app.db._connect() as connection:
         assessment = connection.execute(
             """SELECT a.id, a.name, a.question_count, c.id as classroom_id, c.name as classroom_name
@@ -31,10 +31,51 @@ def list_results(assessment_id):
             (assessment_id,),
         ).fetchall()
 
+        stats = connection.execute(
+            """SELECT
+                  COUNT(*) as students_graded,
+                  ROUND(AVG(score), 1) as avg_score,
+                  ROUND(AVG(percentage), 1) as avg_percentage
+               FROM grading_attempts
+               WHERE assessment_id = ?""",
+            (assessment_id,),
+        ).fetchone()
+
     return render_template(
         "results/list.html",
         assessment=dict(assessment),
         results=[dict(r) for r in results],
+        stats=dict(stats) if stats else {"students_graded": 0, "avg_score": 0, "avg_percentage": 0},
+    )
+
+
+@results_bp.route("/classrooms/<int:classroom_id>/results")
+def classroom_results(classroom_id):
+    """Show a summary of results for all assessments in a classroom."""
+    with current_app.db._connect() as connection:
+        classroom = connection.execute(
+            "SELECT id, name FROM classrooms WHERE id = ?",
+            (classroom_id,),
+        ).fetchone()
+        if classroom is None:
+            flash("Classroom not found.", "error")
+            return redirect(url_for("classrooms.list_classrooms"))
+
+        assessments = connection.execute(
+            """SELECT a.id, a.name, a.question_count,
+                      (SELECT COUNT(*) FROM grading_attempts WHERE assessment_id = a.id) as students_graded,
+                      (SELECT ROUND(AVG(score), 1) FROM grading_attempts WHERE assessment_id = a.id) as avg_score,
+                      (SELECT ROUND(AVG(percentage), 1) FROM grading_attempts WHERE assessment_id = a.id) as avg_percentage
+               FROM assessments a
+               WHERE a.classroom_id = ?
+               ORDER BY a.name""",
+            (classroom_id,),
+        ).fetchall()
+
+    return render_template(
+        "results/classroom_results.html",
+        classroom=dict(classroom),
+        assessments=[dict(a) for a in assessments],
     )
 
 

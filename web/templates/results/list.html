@@ -15,10 +15,39 @@
 {% endblock %}
 
 {% block content %}
-<h1>Results</h1>
+<h1>Results Dashboard</h1>
 <p class="page-subtitle">{{ assessment.name }}</p>
 
+<div class="summary-row">
+    <div class="summary-card">
+        <div class="label">Classroom</div>
+        <div class="value" style="font-size: 1.1rem;">{{ assessment.classroom_name }}</div>
+    </div>
+    <div class="summary-card">
+        <div class="label">Questions</div>
+        <div class="value">{{ assessment.question_count }}</div>
+    </div>
+    <div class="summary-card">
+        <div class="label">Students Graded</div>
+        <div class="value">{{ stats.students_graded }}</div>
+    </div>
+</div>
+
+{% if stats.students_graded > 0 %}
+<div class="summary-row">
+    <div class="summary-card">
+        <div class="label">Average Score</div>
+        <div class="value">{{ stats.avg_score }} / {{ assessment.question_count }}</div>
+    </div>
+    <div class="summary-card">
+        <div class="label">Average Percentage</div>
+        <div class="value">{{ "%.1f"|format(stats.avg_percentage) }}%</div>
+    </div>
+</div>
+{% endif %}
+
 <div class="section-card">
+    <h2 style="margin-top:0;">Student Results</h2>
     {% if results %}
         <table>
             <thead>
@@ -40,8 +69,8 @@
                 <tr>
                     <td>{{ result.student_name or 'Unknown' }}</td>
                     <td>{{ result.student_identifier or '-' }}</td>
-                    <td>{{ result.score }} / {{ assessment.question_count }}</td>
-                    <td>{{ "%.1f"|format(result.percentage) }}%</td>
+                    <td><strong>{{ result.score }} / {{ assessment.question_count }}</strong></td>
+                    <td><strong>{{ "%.1f"|format(result.percentage) }}%</strong></td>
                     <td>{{ result.correct_count }}</td>
                     <td>{{ result.wrong_count }}</td>
                     <td>{{ result.blank_count }}</td>
@@ -56,7 +85,8 @@
         </table>
     {% else %}
         <div class="empty-state">
-            <p>No results yet. Upload scanned answer sheets to see results here.</p>
+            <p>No students have been graded yet.</p>
+            <a href="{{ url_for('grading.grade_scans', assessment_id=assessment.id) }}" class="btn btn-primary">Grade Scans</a>
         </div>
     {% endif %}
 </div>

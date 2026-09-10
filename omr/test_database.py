@@ -172,5 +172,157 @@ class QuestionCountSyncTests(unittest.TestCase):
         self.assertEqual(saved["percentage"], 75.0)
 
 
+class ResultsDashboardTests(unittest.TestCase):
+    def setUp(self):
+        self.temporary_directory = tempfile.TemporaryDirectory()
+        self.database = AssessFlowDatabase(Path(self.temporary_directory.name) / "assessflow.sqlite3")
+        self.database.initialize()
+        self.classroom_id = self.database.create_classroom("Grade 7A")
+
+    def tearDown(self):
+        self.temporary_directory.cleanup()
+
+    def _get_stats(self, assessment_id):
+        """Get aggregate stats the same way the results route does."""
+        with self.database._connect() as connection:
+            stats = connection.execute(
+                """SELECT
+                      COUNT(*) as students_graded,
+                      ROUND(AVG(score), 1) as avg_score,
+                      ROUND(AVG(percentage), 1) as avg_percentage
+                   FROM grading_attempts
+                   WHERE assessment_id = ?""",
+                (assessment_id,),
+            ).fetchone()
+            return dict(stats)
+
+    def test_empty_results_returns_zero_stats(self):
+        """No grading results means zero stats."""
+        assessment_id = self.database.create_assessment(
+            self.classroom_id, "Quiz", {1: "A"}
+        )
+        stats = self._get_stats(assessment_id)
+        self.assertEqual(stats["students_graded"], 0)
+        self.assertIsNone(stats["avg_score"])
+        self.assertIsNone(stats["avg_percentage"])
+
+    def test_one_graded_student(self):
+        """One student graded shows correct stats."""
+        student_id = self.database.create_student(self.classroom_id, "Ada", "S-001")
+        assessment_id = self.database.create_assessment(
+            self.classroom_id, "Quiz", {i: "A" for i in range(1, 21)}
+        )
+        answer_key = {i: "A" for i in range(1, 51)}
+        student_answers = {i: "A" for i in range(1, 21)}
+        result = create_grading_result(student_answers, answer_key, question_count=20)
+        self.database.save_grading_result(assessment_id, result, student_id)
+
+        stats = self._get_stats(assessment_id)
+        self.assertEqual(stats["students_graded"], 1)
+        self.assertEqual(stats["avg_score"], 20.0)
+        self.assertEqual(stats["avg_percentage"], 100.0)
+
+    def test_multiple_graded_students_average(self):
+        """Multiple students produce correct averages."""
+        student1 = self.database.create_student(self.classroom_id, "Ada", "S-001")
+        student2 = self.database.create_student(self.classroom_id, "Grace", "S-002")
+        assessment_id = self.database.create_assessment(
+            self.classroom_id, "Quiz", {i: "A" for i in range(1, 21)}
+        )
+        answer_key = {i: "A" for i in range(1, 51)}
+
+        # Student 1: 20/20
+        result1 = create_grading_result({i: "A" for i in range(1, 21)}, answer_key, question_count=20)
+        self.database.save_grading_result(assessment_id, result1, student1)
+
+        # Student 2: 10/20
+        student_answers = {i: "A" for i in range(1, 11)}
+        for q in range(11, 21):
+            student_answers[q] = "B"
+        result2 = create_grading_result(student_answers, answer_key, question_count=20)
+        self.database.save_grading_result(assessment_id, result2, student2)
+
+        stats = self._get_stats(assessment_id)
+        self.assertEqual(stats["students_graded"], 2)
+        self.assertEqual(stats["avg_score"], 15.0)
+        self.assertEqual(stats["avg_percentage"], 75.0)
+
+    def test_50_question_assessment_average(self):
+        """50-question assessment calculates average correctly."""
+        student1 = self.database.create_student(self.classroom_id, "Ada", "S-001")
+        student2 = self.database.create_student(self.classroom_id, "Grace", "S-002")
+        answer_key = {i: "A" for i in range(1, 51)}
+        assessment_id = self.database.create_assessment(
+            self.classroom_id, "Quiz 50", answer_key
+        )
+
+        # Student 1: 50/50
+        result1 = create_grading_result({i: "A" for i in range(1, 51)}, answer_key)
+        self.database.save_grading_result(assessment_id, result1, student1)
+
+        # Student 2: 40/50
+        student_answers = {i: "A" for i in range(1, 41)}
+        for q in range(41, 51):
+            student_answers[q] = "B"
+        result2 = create_grading_result(student_answers, answer_key)
+        self.database.save_grading_result(assessment_id, result2, student2)
+
+        stats = self._get_stats(assessment_id)
+        self.assertEqual(stats["students_graded"], 2)
+        self.assertEqual(stats["avg_score"], 45.0)
+        self.assertEqual(stats["avg_percentage"], 90.0)
+
+    def test_zero_score_included_in_average(self):
+        """A student with 0/20 is included in the average calculation."""
+        student1 = self.database.create_student(self.classroom_id, "Ada", "S-001")
+        student2 = self.database.create_student(self.classroom_id, "Grace", "S-002")
+        assessment_id = self.database.create_assessment(
+            self.classroom_id, "Quiz", {i: "A" for i in range(1, 21)}
+        )
+        answer_key = {i: "A" for i in range(1, 51)}
+
+        # Student 1: 20/20
+        result1 = create_grading_result({i: "A" for i in range(1, 21)}, answer_key, question_count=20)
+        self.database.save_grading_result(assessment_id, result1, student1)
+
+        # Student 2: 0/20
+        result2 = create_grading_result({}, answer_key, question_count=20)
+        self.database.save_grading_result(assessment_id, result2, student2)
+
+        stats = self._get_stats(assessment_id)
+        self.assertEqual(stats["students_graded"], 2)
+        self.assertEqual(stats["avg_score"], 10.0)
+        self.assertEqual(stats["avg_percentage"], 50.0)
+
+    def test_classroom_results_query(self):
+        """Classroom results query returns assessment summaries."""
+        student1 = self.database.create_student(self.classroom_id, "Ada", "S-001")
+        assessment_id = self.database.create_assessment(
+            self.classroom_id, "Quiz", {i: "A" for i in range(1, 21)}
+        )
+        answer_key = {i: "A" for i in range(1, 51)}
+        result = create_grading_result({i: "A" for i in range(1, 21)}, answer_key, question_count=20)
+        self.database.save_grading_result(assessment_id, result, student1)
+
+        with self.database._connect() as connection:
+            assessments = connection.execute(
+                """SELECT a.id, a.name, a.question_count,
+                          (SELECT COUNT(*) FROM grading_attempts WHERE assessment_id = a.id) as students_graded,
+                          (SELECT ROUND(AVG(score), 1) FROM grading_attempts WHERE assessment_id = a.id) as avg_score,
+                          (SELECT ROUND(AVG(percentage), 1) FROM grading_attempts WHERE assessment_id = a.id) as avg_percentage
+                   FROM assessments a
+                   WHERE a.classroom_id = ?
+                   ORDER BY a.name""",
+                (self.classroom_id,),
+            ).fetchall()
+
+        self.assertEqual(len(assessments), 1)
+        a = dict(assessments[0])
+        self.assertEqual(a["name"], "Quiz")
+        self.assertEqual(a["students_graded"], 1)
+        self.assertEqual(a["avg_score"], 20.0)
+        self.assertEqual(a["avg_percentage"], 100.0)
+
+
 if __name__ == "__main__":
     unittest.main()
