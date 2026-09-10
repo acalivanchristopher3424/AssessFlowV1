@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+
+{% block title %}Edit Answer Key - {{ assessment.name }} - AssessFlow{% endblock %}
+
+{% block breadcrumbs %}
+<div class="breadcrumbs">
+    <a href="{{ url_for('classrooms.list_classrooms') }}">Classrooms</a>
+    <span class="sep">&rsaquo;</span>
+    <a href="{{ url_for('classrooms.view_classroom', classroom_id=assessment.classroom_id) }}">{{ assessment.classroom_name }}</a>
+    <span class="sep">&rsaquo;</span>
+    <a href="{{ url_for('assessments.view_assessment', assessment_id=assessment.id) }}">{{ assessment.name }}</a>
+    <span class="sep">&rsaquo;</span>
+    <span>Edit Answer Key</span>
+</div>
+{% endblock %}
+
+{% block content %}
+<h1>Edit Answer Key</h1>
+<p class="page-subtitle">{{ assessment.name }}</p>
+
+<div class="section-card">
+    <div class="instructions">
+        <strong>Tip:</strong> The number of questions with answers determines the assessment question count. To change from 21 to 20 questions, clear the answer for question 21. Only questions with answers will be graded.
+    </div>
+
+    <form method="POST">
+        <table>
+            <thead>
+                <tr>
+                    <th>Question</th>
+                    <th>Correct Answer</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for q in questions_range %}
+                <tr>
+                    <td>{{ q }}</td>
+                    <td>
+                        <select name="q{{ q }}">
+                            <option value="">-</option>
+                            {% for choice in ['A','B','C','D','E','F','G','H','I','J','K','L'] %}
+                            <option value="{{ choice }}" {% if current_answers.get(q) == choice %}selected{% endif %}>{{ choice }}</option>
+                            {% endfor %}
+                        </select>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+
+        <div class="btn-group">
+            <button type="submit" class="btn btn-primary">Update Answer Key</button>
+            <a href="{{ url_for('assessments.view_assessment', assessment_id=assessment.id) }}" class="btn btn-secondary">Cancel</a>
+        </div>
+    </form>
+</div>
+{% endblock %}

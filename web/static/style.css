@@ -1,0 +1,511 @@
+/* ========================================
+   AssessFlow V1 — Teacher-Friendly Styles
+   ======================================== */
+
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    line-height: 1.6;
+    color: #1a1a2e;
+    background: #f0f2f5;
+    max-width: 960px;
+    margin: 0 auto;
+    padding: 0 20px 40px;
+}
+
+/* --- Navigation --- */
+
+nav {
+    background: #1a1a2e;
+    margin: 0 -20px;
+    padding: 0 20px;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    flex-wrap: wrap;
+}
+
+nav .nav-brand {
+    font-weight: 700;
+    font-size: 1.1rem;
+    color: #fff;
+    text-decoration: none;
+    padding: 12px 16px 12px 0;
+    margin-right: 8px;
+    border-right: 1px solid #333;
+}
+
+nav a {
+    color: #b0b3c5;
+    text-decoration: none;
+    padding: 14px 12px;
+    font-size: 0.9rem;
+    transition: color 0.15s, background 0.15s;
+    border-radius: 4px 4px 0 0;
+}
+
+nav a:hover,
+nav a.active {
+    color: #fff;
+    background: rgba(255,255,255,0.1);
+}
+
+nav a:last-child {
+    margin-left: auto;
+}
+
+/* --- Breadcrumbs --- */
+
+.breadcrumbs {
+    font-size: 0.85rem;
+    color: #666;
+    padding: 14px 0 0;
+}
+
+.breadcrumbs a {
+    color: #2563eb;
+    text-decoration: none;
+}
+
+.breadcrumbs a:hover {
+    text-decoration: underline;
+}
+
+.breadcrumbs .sep {
+    margin: 0 6px;
+    color: #aaa;
+}
+
+/* --- Main Content --- */
+
+main {
+    padding-top: 8px;
+}
+
+/* --- Typography --- */
+
+h1 {
+    font-size: 1.6rem;
+    font-weight: 700;
+    color: #1a1a2e;
+    margin-bottom: 6px;
+    padding-top: 16px;
+}
+
+.page-subtitle {
+    font-size: 0.95rem;
+    color: #555;
+    margin-bottom: 20px;
+}
+
+h2 {
+    font-size: 1.15rem;
+    font-weight: 600;
+    color: #333;
+    margin: 28px 0 12px;
+    padding-bottom: 6px;
+    border-bottom: 2px solid #e5e7eb;
+}
+
+h3 {
+    font-size: 1rem;
+    font-weight: 600;
+    color: #444;
+    margin: 20px 0 8px;
+}
+
+/* --- Summary Cards --- */
+
+.summary-row {
+    display: flex;
+    gap: 16px;
+    margin-bottom: 24px;
+    flex-wrap: wrap;
+}
+
+.summary-card {
+    background: #fff;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    padding: 16px 20px;
+    min-width: 140px;
+    flex: 1;
+}
+
+.summary-card .label {
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: #666;
+    margin-bottom: 4px;
+}
+
+.summary-card .value {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: #1a1a2e;
+}
+
+/* --- Tables --- */
+
+table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 12px 0;
+    background: #fff;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+th, td {
+    padding: 10px 14px;
+    text-align: left;
+    border-bottom: 1px solid #e5e7eb;
+}
+
+th {
+    background: #f8f9fb;
+    font-weight: 600;
+    font-size: 0.85rem;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+    color: #555;
+}
+
+tr:last-child td {
+    border-bottom: none;
+}
+
+tr:hover {
+    background: #f8f9fb;
+}
+
+td a {
+    color: #2563eb;
+    text-decoration: none;
+    font-weight: 500;
+}
+
+td a:hover {
+    text-decoration: underline;
+}
+
+/* --- Buttons & Links --- */
+
+.btn {
+    display: inline-block;
+    padding: 9px 18px;
+    border-radius: 6px;
+    font-size: 0.9rem;
+    font-weight: 500;
+    text-decoration: none;
+    border: none;
+    cursor: pointer;
+    transition: background 0.15s, box-shadow 0.15s;
+}
+
+.btn-primary {
+    background: #2563eb;
+    color: #fff;
+}
+
+.btn-primary:hover {
+    background: #1d4ed8;
+}
+
+.btn-secondary {
+    background: #fff;
+    color: #374151;
+    border: 1px solid #d1d5db;
+}
+
+.btn-secondary:hover {
+    background: #f3f4f6;
+}
+
+.btn-sm {
+    padding: 5px 12px;
+    font-size: 0.82rem;
+}
+
+.btn-group {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin: 16px 0;
+}
+
+a.link {
+    color: #2563eb;
+    text-decoration: none;
+}
+
+a.link:hover {
+    text-decoration: underline;
+}
+
+/* --- Alerts --- */
+
+.alert {
+    padding: 12px 16px;
+    margin-bottom: 16px;
+    border-radius: 6px;
+    font-size: 0.9rem;
+    border-left: 4px solid;
+}
+
+.alert-success {
+    background: #ecfdf5;
+    color: #065f46;
+    border-color: #10b981;
+}
+
+.alert-error {
+    background: #fef2f2;
+    color: #991b1b;
+    border-color: #ef4444;
+}
+
+.alert-warning {
+    background: #fffbeb;
+    color: #92400e;
+    border-color: #f59e0b;
+}
+
+/* --- Forms --- */
+
+form {
+    margin: 16px 0;
+}
+
+.form-group {
+    margin-bottom: 16px;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 5px;
+    font-weight: 600;
+    font-size: 0.9rem;
+    color: #333;
+}
+
+.form-group .help-text {
+    font-size: 0.82rem;
+    color: #666;
+    margin-top: 4px;
+}
+
+input[type="text"],
+input[type="file"],
+select {
+    display: block;
+    padding: 9px 12px;
+    border: 1px solid #d1d5db;
+    border-radius: 6px;
+    width: 100%;
+    max-width: 400px;
+    font-size: 0.95rem;
+    font-family: inherit;
+    transition: border-color 0.15s;
+}
+
+input[type="text"]:focus,
+select:focus {
+    outline: none;
+    border-color: #2563eb;
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
+}
+
+input[type="file"] {
+    padding: 8px;
+    max-width: 100%;
+}
+
+select {
+    width: auto;
+    min-width: 60px;
+}
+
+/* --- Status Badges --- */
+
+.badge {
+    display: inline-block;
+    padding: 3px 10px;
+    border-radius: 12px;
+    font-size: 0.78rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+}
+
+.badge-graded {
+    background: #d1fae5;
+    color: #065f46;
+}
+
+.badge-unknown {
+    background: #fef3c7;
+    color: #92400e;
+}
+
+.badge-failed {
+    background: #fee2e2;
+    color: #991b1b;
+}
+
+.badge-correct {
+    background: #d1fae5;
+    color: #065f46;
+}
+
+.badge-wrong {
+    background: #fee2e2;
+    color: #991b1b;
+}
+
+.badge-blank {
+    background: #f3f4f6;
+    color: #6b7280;
+}
+
+.badge-multiple {
+    background: #fef3c7;
+    color: #92400e;
+}
+
+/* --- Empty States --- */
+
+.empty-state {
+    text-align: center;
+    padding: 40px 20px;
+    color: #666;
+    background: #fff;
+    border: 2px dashed #e5e7eb;
+    border-radius: 8px;
+    margin: 16px 0;
+}
+
+.empty-state p {
+    margin-bottom: 16px;
+    font-size: 0.95rem;
+}
+
+/* --- Section Cards --- */
+
+.section-card {
+    background: #fff;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    padding: 20px;
+    margin-bottom: 20px;
+}
+
+.section-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+}
+
+/* --- Upload Area --- */
+
+.upload-area {
+    border: 2px dashed #d1d5db;
+    border-radius: 8px;
+    padding: 32px;
+    text-align: center;
+    background: #fafbfc;
+    margin: 16px 0;
+}
+
+.upload-area p {
+    color: #555;
+    margin-bottom: 8px;
+}
+
+.upload-area .hint {
+    font-size: 0.85rem;
+    color: #888;
+}
+
+/* --- Instructions List --- */
+
+.instructions {
+    background: #f0f7ff;
+    border: 1px solid #bfdbfe;
+    border-radius: 8px;
+    padding: 16px 20px;
+    margin: 16px 0;
+}
+
+.instructions ol {
+    margin: 8px 0 0 20px;
+    color: #1e40af;
+    font-size: 0.9rem;
+}
+
+.instructions ol li {
+    padding: 3px 0;
+}
+
+/* --- Question Details Table --- */
+
+.question-result-correct {
+    color: #065f46;
+    font-weight: 600;
+}
+
+.question-result-wrong {
+    color: #991b1b;
+    font-weight: 600;
+}
+
+.question-result-blank {
+    color: #6b7280;
+    font-style: italic;
+}
+
+.question-result-multiple {
+    color: #92400e;
+    font-weight: 600;
+}
+
+/* --- Responsive --- */
+
+@media (max-width: 640px) {
+    body {
+        padding: 0 12px 24px;
+    }
+
+    nav {
+        margin: 0 -12px;
+        padding: 0 12px;
+    }
+
+    .summary-row {
+        flex-direction: column;
+    }
+
+    table {
+        font-size: 0.85rem;
+    }
+
+    th, td {
+        padding: 8px 10px;
+    }
+
+    .btn-group {
+        flex-direction: column;
+    }
+
+    .btn-group .btn {
+        text-align: center;
+    }
+}

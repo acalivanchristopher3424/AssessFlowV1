@@ -70,5 +70,107 @@ class AssessFlowDatabaseTests(unittest.TestCase):
         self.assertEqual(found_in_b["name"], "Bob Smith")
 
 
+class QuestionCountSyncTests(unittest.TestCase):
+    def setUp(self):
+        self.temporary_directory = tempfile.TemporaryDirectory()
+        self.database = AssessFlowDatabase(Path(self.temporary_directory.name) / "assessflow.sqlite3")
+        self.database.initialize()
+        self.classroom_id = self.database.create_classroom("Grade 7A")
+
+    def tearDown(self):
+        self.temporary_directory.cleanup()
+
+    def _get_question_count(self, assessment_id):
+        assessment = self.database.get_assessment(assessment_id)
+        return assessment["question_count"]
+
+    def _simulate_edit_answer_key(self, assessment_id, new_answer_key):
+        """Simulate what web/routes/assessments.py edit_answer_key() does."""
+        with self.database._connect() as connection:
+            connection.execute(
+                "DELETE FROM assessment_questions WHERE assessment_id = ?",
+                (assessment_id,),
+            )
+            connection.executemany(
+                "INSERT INTO assessment_questions (assessment_id, question_number, correct_answer) VALUES (?, ?, ?)",
+                [(assessment_id, q, new_answer_key[q]) for q in sorted(new_answer_key)],
+            )
+            connection.execute(
+                "UPDATE assessments SET question_count = ? WHERE id = ?",
+                (len(new_answer_key), assessment_id),
+            )
+
+    def test_create_20_question_assessment_sets_question_count_20(self):
+        """Creating with 20 answers sets question_count = 20."""
+        answer_key = {i: "A" for i in range(1, 21)}
+        assessment_id = self.database.create_assessment(self.classroom_id, "Quiz 20", answer_key)
+        self.assertEqual(self._get_question_count(assessment_id), 20)
+
+    def test_create_50_question_assessment_sets_question_count_50(self):
+        """Creating with 50 answers sets question_count = 50."""
+        answer_key = {i: "A" for i in range(1, 51)}
+        assessment_id = self.database.create_assessment(self.classroom_id, "Quiz 50", answer_key)
+        self.assertEqual(self._get_question_count(assessment_id), 50)
+
+    def test_edit_from_21_to_20_updates_question_count(self):
+        """Editing 21 answers down to 20 changes question_count from 21 to 20."""
+        answer_key_21 = {i: "A" for i in range(1, 22)}
+        assessment_id = self.database.create_assessment(self.classroom_id, "Quiz", answer_key_21)
+        self.assertEqual(self._get_question_count(assessment_id), 21)
+
+        answer_key_20 = {i: "A" for i in range(1, 21)}
+        self._simulate_edit_answer_key(assessment_id, answer_key_20)
+        self.assertEqual(self._get_question_count(assessment_id), 20)
+
+    def test_edit_answer_key_persists_new_answers(self):
+        """Editing the answer key stores the new correct answers."""
+        assessment_id = self.database.create_assessment(
+            self.classroom_id, "Quiz", {1: "A", 2: "B"}
+        )
+        new_key = {1: "C", 2: "D", 3: "E"}
+        self._simulate_edit_answer_key(assessment_id, new_key)
+
+        with self.database._connect() as connection:
+            questions = connection.execute(
+                "SELECT question_number, correct_answer FROM assessment_questions WHERE assessment_id = ? ORDER BY question_number",
+                (assessment_id,),
+            ).fetchall()
+        stored = {q["question_number"]: q["correct_answer"] for q in questions}
+        self.assertEqual(stored, {1: "C", 2: "D", 3: "E"})
+        self.assertEqual(self._get_question_count(assessment_id), 3)
+
+    def test_grading_20_question_assessment_ignores_q21_to_q50(self):
+        """Grading a 20-question assessment does not include Q21-Q50."""
+        student_id = self.database.create_student(self.classroom_id, "Test Student", "T-001")
+        answer_key = {i: "A" for i in range(1, 51)}
+        assessment_id = self.database.create_assessment(self.classroom_id, "Quiz 20", {i: "A" for i in range(1, 21)})
+
+        student_answers = {i: "A" for i in range(1, 21)}
+        result = create_grading_result(student_answers, answer_key, question_count=20)
+        attempt_id = self.database.save_grading_result(assessment_id, result, student_id)
+        saved = self.database.get_grading_result(attempt_id)
+
+        self.assertEqual(saved["total_questions"], 20)
+        self.assertEqual(saved["score"], 20)
+        self.assertEqual(len(saved["questions"]), 20)
+        self.assertEqual(saved["questions"][-1]["question_number"], 20)
+
+    def test_grading_20_question_percentage_out_of_20(self):
+        """Percentage for 20-question assessment is calculated out of 20."""
+        student_id = self.database.create_student(self.classroom_id, "Test Student", "T-002")
+        answer_key = {i: "A" for i in range(1, 51)}
+        assessment_id = self.database.create_assessment(self.classroom_id, "Quiz 20", {i: "A" for i in range(1, 21)})
+
+        student_answers = {i: "A" for i in range(1, 16)}
+        for q in range(16, 21):
+            student_answers[q] = "B"
+        result = create_grading_result(student_answers, answer_key, question_count=20)
+        attempt_id = self.database.save_grading_result(assessment_id, result, student_id)
+        saved = self.database.get_grading_result(attempt_id)
+
+        self.assertEqual(saved["score"], 15)
+        self.assertEqual(saved["percentage"], 75.0)
+
+
 if __name__ == "__main__":
     unittest.main()

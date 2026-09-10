@@ -120,6 +120,25 @@ class AssessFlowDatabase:
 
             return dict(row)
 
+    def get_assessment(self, assessment_id):
+        """Get an assessment by ID.
+
+        Returns the assessment row as a dict, or None if not found.
+        """
+
+        with self._connect() as connection:
+            row = connection.execute(
+                """SELECT id, classroom_id, name, question_count, created_at
+                   FROM assessments
+                   WHERE id = ?""",
+                (assessment_id,),
+            ).fetchone()
+
+            if row is None:
+                return None
+
+            return dict(row)
+
     def create_assessment(self, classroom_id, name, answer_key):
         """Create an assessment and persist its answer key by question."""
 

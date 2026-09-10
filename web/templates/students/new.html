@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+
+{% block title %}Add Student - {{ classroom.name }} - AssessFlow{% endblock %}
+
+{% block breadcrumbs %}
+<div class="breadcrumbs">
+    <a href="{{ url_for('classrooms.list_classrooms') }}">Classrooms</a>
+    <span class="sep">&rsaquo;</span>
+    <a href="{{ url_for('classrooms.view_classroom', classroom_id=classroom.id) }}">{{ classroom.name }}</a>
+    <span class="sep">&rsaquo;</span>
+    <span>Add Student</span>
+</div>
+{% endblock %}
+
+{% block content %}
+<h1>Add Student</h1>
+<p class="page-subtitle">Add a new student to {{ classroom.name }}.</p>
+
+<div class="section-card">
+    <form method="POST">
+        <div class="form-group">
+            <label for="name">Student Name</label>
+            <input type="text" id="name" name="name" required placeholder="e.g. Juan Dela Cruz">
+        </div>
+
+        <div class="form-group">
+            <label for="student_identifier">Student ID</label>
+            <input type="text" id="student_identifier" name="student_identifier" pattern="[0-9]{6}" maxlength="6" placeholder="e.g. 123456">
+            <div class="help-text">Must be a unique 6-digit ID within this classroom. This is used to match scanned answer sheets to the student.</div>
+        </div>
+
+        <div class="btn-group">
+            <button type="submit" class="btn btn-primary">Add Student</button>
+            <a href="{{ url_for('classrooms.view_classroom', classroom_id=classroom.id) }}" class="btn btn-secondary">Cancel</a>
+        </div>
+    </form>
+</div>
+{% endblock %}

@@ -88,8 +88,15 @@ def detect_student_answers(input_file):
     return answers
 
 
-def grade_answers(student_answers, answer_key):
-    """Compare student answers with the answer key."""
+def grade_answers(student_answers, answer_key, question_count=None):
+    """Compare student answers with the answer key.
+
+    Only grades questions 1 through question_count.
+    Questions beyond question_count are ignored.
+    """
+
+    if question_count is None:
+        question_count = QUESTIONS
 
     score = 0
     correct = 0
@@ -101,7 +108,7 @@ def grade_answers(student_answers, answer_key):
 
     for question_number in range(
         1,
-        QUESTIONS + 1,
+        question_count + 1,
     ):
 
         student_answer = student_answers.get(
@@ -155,8 +162,14 @@ def grade_answers(student_answers, answer_key):
     )
 
 
-def create_grading_result(student_answers, answer_key, source_file=None):
-    """Return a JSON-serializable grading result for storage or an API."""
+def create_grading_result(student_answers, answer_key, source_file=None, question_count=None):
+    """Return a JSON-serializable grading result for storage or an API.
+
+    Only grades questions 1 through question_count.
+    """
+
+    if question_count is None:
+        question_count = QUESTIONS
 
     (
         score,
@@ -165,11 +178,11 @@ def create_grading_result(student_answers, answer_key, source_file=None):
         blank,
         multiple,
         question_results,
-    ) = grade_answers(student_answers, answer_key)
+    ) = grade_answers(student_answers, answer_key, question_count)
 
     questions = []
 
-    for question_number in range(1, QUESTIONS + 1):
+    for question_number in range(1, question_count + 1):
         question = question_results[question_number]
 
         questions.append({
@@ -181,9 +194,9 @@ def create_grading_result(student_answers, answer_key, source_file=None):
 
     return {
         "source_file": str(source_file) if source_file else None,
-        "total_questions": QUESTIONS,
+        "total_questions": question_count,
         "score": score,
-        "percentage": (score / QUESTIONS) * 100,
+        "percentage": (score / question_count) * 100,
         "correct": correct,
         "wrong": wrong,
         "blank": blank,
@@ -192,7 +205,7 @@ def create_grading_result(student_answers, answer_key, source_file=None):
     }
 
 
-def grade_scan(input_file, answer_key=None):
+def grade_scan(input_file, answer_key=None, question_count=None):
     """Detect and grade one scan, returning a structured result."""
 
     if answer_key is None:
@@ -204,6 +217,7 @@ def grade_scan(input_file, answer_key=None):
         student_answers,
         answer_key,
         source_file=input_file,
+        question_count=question_count,
     )
 
 

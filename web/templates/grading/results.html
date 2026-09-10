@@ -1,0 +1,109 @@
+{% extends "base.html" %}
+
+{% block title %}Grading Results - {{ assessment.name }} - AssessFlow{% endblock %}
+
+{% block breadcrumbs %}
+<div class="breadcrumbs">
+    <a href="{{ url_for('classrooms.list_classrooms') }}">Classrooms</a>
+    <span class="sep">&rsaquo;</span>
+    <a href="{{ url_for('classrooms.view_classroom', classroom_id=assessment.classroom_id) }}">{{ assessment.classroom_name }}</a>
+    <span class="sep">&rsaquo;</span>
+    <a href="{{ url_for('assessments.view_assessment', assessment_id=assessment.id) }}">{{ assessment.name }}</a>
+    <span class="sep">&rsaquo;</span>
+    <span>Grading Results</span>
+</div>
+{% endblock %}
+
+{% block content %}
+<h1>Grading Results</h1>
+<p class="page-subtitle">{{ assessment.name }}</p>
+
+<div class="summary-row">
+    <div class="summary-card">
+        <div class="label">Scans Processed</div>
+        <div class="value">{{ results|length }}</div>
+    </div>
+    <div class="summary-card">
+        <div class="label">Graded</div>
+        <div class="value">{{ results|selectattr('status', 'equalto', 'graded')|list|length }}</div>
+    </div>
+    <div class="summary-card">
+        <div class="label">Unknown Student</div>
+        <div class="value">{{ results|selectattr('status', 'equalto', 'unknown_student')|list|length }}</div>
+    </div>
+    <div class="summary-card">
+        <div class="label">Failed</div>
+        <div class="value">{{ results|selectattr('status', 'equalto', 'failed')|list|length }}</div>
+    </div>
+</div>
+
+<div class="section-card">
+    <table>
+        <thead>
+            <tr>
+                <th>Student</th>
+                <th>Student ID</th>
+                <th>Status</th>
+                <th>Score</th>
+                <th>Percentage</th>
+                <th>Details</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for result in results %}
+            <tr>
+                <td>
+                    {% if result.student_name %}
+                        {{ result.student_name }}
+                    {% else %}
+                        <span style="color:#888;">&mdash;</span>
+                    {% endif %}
+                </td>
+                <td>
+                    {% if result.student_identifier %}
+                        {{ result.student_identifier }}
+                    {% else %}
+                        <span style="color:#888;">&mdash;</span>
+                    {% endif %}
+                </td>
+                <td>
+                    {% if result.status == 'graded' %}
+                        <span class="badge badge-graded">Graded</span>
+                    {% elif result.status == 'unknown_student' %}
+                        <span class="badge badge-unknown">Unknown Student</span>
+                    {% else %}
+                        <span class="badge badge-failed">Failed</span>
+                    {% endif %}
+                </td>
+                <td>
+                    {% if result.grading_result %}
+                        {{ result.grading_result.score }} / {{ result.grading_result.total_questions }}
+                    {% else %}
+                        &mdash;
+                    {% endif %}
+                </td>
+                <td>
+                    {% if result.grading_result %}
+                        {{ "%.1f"|format(result.grading_result.percentage) }}%
+                    {% else %}
+                        &mdash;
+                    {% endif %}
+                </td>
+                <td>
+                    {% if result.attempt_id %}
+                        <a href="{{ url_for('results.view_result', attempt_id=result.attempt_id) }}">View</a>
+                    {% else %}
+                        &mdash;
+                    {% endif %}
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<div class="btn-group">
+    <a href="{{ url_for('results.list_results', assessment_id=assessment.id) }}" class="btn btn-secondary">View All Results</a>
+    <a href="{{ url_for('assessments.view_assessment', assessment_id=assessment.id) }}" class="btn btn-secondary">Back to Assessment</a>
+</div>
+{% endblock %}

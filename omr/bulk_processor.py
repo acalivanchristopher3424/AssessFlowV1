@@ -183,7 +183,9 @@ def bulk_process_with_context(
             continue
 
         try:
-            grading_result = grade_scan(input_file)
+            assessment = database.get_assessment(assessment_id)
+            question_count = assessment["question_count"] if assessment else None
+            grading_result = grade_scan(input_file, question_count=question_count)
         except Exception:
             grading_result = None
 

@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+
+{% block title %}AssessFlow - Home{% endblock %}
+
+{% block content %}
+<h1>Welcome to AssessFlow</h1>
+<p class="page-subtitle">OMR Assessment Grading System</p>
+
+<div class="section-card">
+    <p>AssessFlow helps you manage classrooms, create assessments, upload completed answer sheets, and automatically grade them &mdash; all from scanned OMR sheets.</p>
+</div>
+
+<h2>Your Classrooms</h2>
+
+{% if classrooms %}
+    <table>
+        <thead>
+            <tr>
+                <th>Classroom</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+        {% for classroom in classrooms %}
+            <tr>
+                <td><a href="{{ url_for('classrooms.view_classroom', classroom_id=classroom.id) }}">{{ classroom.name }}</a></td>
+                <td><a href="{{ url_for('classrooms.view_classroom', classroom_id=classroom.id) }}" class="btn btn-sm btn-secondary">View</a></td>
+            </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+{% else %}
+    <div class="empty-state">
+        <p>No classrooms yet. Create your first classroom to get started.</p>
+        <a href="{{ url_for('classrooms.new_classroom') }}" class="btn btn-primary">Create Classroom</a>
+    </div>
+{% endif %}
+
+{% if classrooms %}
+    <div class="btn-group">
+        <a href="{{ url_for('classrooms.new_classroom') }}" class="btn btn-primary">Create Classroom</a>
+    </div>
+{% endif %}
+{% endblock %}

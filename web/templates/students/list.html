@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+
+{% block title %}Students - {{ classroom.name }} - AssessFlow{% endblock %}
+
+{% block breadcrumbs %}
+<div class="breadcrumbs">
+    <a href="{{ url_for('classrooms.list_classrooms') }}">Classrooms</a>
+    <span class="sep">&rsaquo;</span>
+    <a href="{{ url_for('classrooms.view_classroom', classroom_id=classroom.id) }}">{{ classroom.name }}</a>
+    <span class="sep">&rsaquo;</span>
+    <span>Students</span>
+</div>
+{% endblock %}
+
+{% block content %}
+<h1>Students in {{ classroom.name }}</h1>
+
+<div class="section-card">
+    <div class="section-card-header">
+        <h2 style="margin:0; border:none; padding:0;">Students</h2>
+        <a href="{{ url_for('students.new_student', classroom_id=classroom.id) }}" class="btn btn-sm btn-primary">+ Add Student</a>
+    </div>
+
+    {% if students %}
+        <table>
+            <thead>
+                <tr>
+                    <th>Student Name</th>
+                    <th>Student ID</th>
+                </tr>
+            </thead>
+            <tbody>
+            {% for student in students %}
+                <tr>
+                    <td>{{ student.name }}</td>
+                    <td>{{ student.student_identifier or '-' }}</td>
+                </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    {% else %}
+        <div class="empty-state">
+            <p>No students registered yet.</p>
+        </div>
+    {% endif %}
+</div>
+
+<div class="btn-group">
+    <a href="{{ url_for('classrooms.view_classroom', classroom_id=classroom.id) }}" class="btn btn-secondary">Back to Classroom</a>
+</div>
+{% endblock %}

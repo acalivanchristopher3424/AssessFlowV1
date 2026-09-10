@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+
+{% block title %}Results - {{ assessment.name }} - AssessFlow{% endblock %}
+
+{% block breadcrumbs %}
+<div class="breadcrumbs">
+    <a href="{{ url_for('classrooms.list_classrooms') }}">Classrooms</a>
+    <span class="sep">&rsaquo;</span>
+    <a href="{{ url_for('classrooms.view_classroom', classroom_id=assessment.classroom_id) }}">{{ assessment.classroom_name }}</a>
+    <span class="sep">&rsaquo;</span>
+    <a href="{{ url_for('assessments.view_assessment', assessment_id=assessment.id) }}">{{ assessment.name }}</a>
+    <span class="sep">&rsaquo;</span>
+    <span>Results</span>
+</div>
+{% endblock %}
+
+{% block content %}
+<h1>Results</h1>
+<p class="page-subtitle">{{ assessment.name }}</p>
+
+<div class="section-card">
+    {% if results %}
+        <table>
+            <thead>
+                <tr>
+                    <th>Student</th>
+                    <th>Student ID</th>
+                    <th>Score</th>
+                    <th>Percentage</th>
+                    <th>Correct</th>
+                    <th>Wrong</th>
+                    <th>Blank</th>
+                    <th>Multiple</th>
+                    <th>Date</th>
+                    <th>Details</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for result in results %}
+                <tr>
+                    <td>{{ result.student_name or 'Unknown' }}</td>
+                    <td>{{ result.student_identifier or '-' }}</td>
+                    <td>{{ result.score }} / {{ assessment.question_count }}</td>
+                    <td>{{ "%.1f"|format(result.percentage) }}%</td>
+                    <td>{{ result.correct_count }}</td>
+                    <td>{{ result.wrong_count }}</td>
+                    <td>{{ result.blank_count }}</td>
+                    <td>{{ result.multiple_count }}</td>
+                    <td>{{ result.graded_at.split('T')[0] if result.graded_at else '-' }}</td>
+                    <td>
+                        <a href="{{ url_for('results.view_result', attempt_id=result.id) }}">View</a>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    {% else %}
+        <div class="empty-state">
+            <p>No results yet. Upload scanned answer sheets to see results here.</p>
+        </div>
+    {% endif %}
+</div>
+
+<div class="btn-group">
+    <a href="{{ url_for('grading.grade_scans', assessment_id=assessment.id) }}" class="btn btn-primary">Upload More Scans</a>
+    <a href="{{ url_for('assessments.view_assessment', assessment_id=assessment.id) }}" class="btn btn-secondary">Back to Assessment</a>
+</div>
+{% endblock %}

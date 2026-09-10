@@ -1,0 +1,63 @@
+{% extends "base.html" %}
+
+{% block title %}Create Assessment - {{ classroom.name }} - AssessFlow{% endblock %}
+
+{% block breadcrumbs %}
+<div class="breadcrumbs">
+    <a href="{{ url_for('classrooms.list_classrooms') }}">Classrooms</a>
+    <span class="sep">&rsaquo;</span>
+    <a href="{{ url_for('classrooms.view_classroom', classroom_id=classroom.id) }}">{{ classroom.name }}</a>
+    <span class="sep">&rsaquo;</span>
+    <span>New Assessment</span>
+</div>
+{% endblock %}
+
+{% block content %}
+<h1>Create Assessment</h1>
+<p class="page-subtitle">Create a new assessment for {{ classroom.name }}.</p>
+
+<div class="section-card">
+    <div class="instructions">
+        <strong>Note:</strong> The printed answer sheet always contains 50 questions. AssessFlow will grade only the number of questions you define below. For example, if you enter 20 answers, only questions 1&ndash;20 will be graded.
+    </div>
+
+    <form method="POST">
+        <div class="form-group">
+            <label for="name">Assessment Name</label>
+            <input type="text" id="name" name="name" required placeholder="e.g. Unit 1 Quiz">
+        </div>
+
+        <h2>Answer Key</h2>
+        <p style="font-size: 0.9rem; color: #555; margin-bottom: 12px;">Enter the correct answer for each question (A&ndash;L). Questions left blank will not be included. The number of answers you enter determines how many questions this assessment has.</p>
+
+        <table>
+            <thead>
+                <tr>
+                    <th>Question</th>
+                    <th>Correct Answer</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for q in range(1, 51) %}
+                <tr>
+                    <td>{{ q }}</td>
+                    <td>
+                        <select name="q{{ q }}">
+                            <option value="">-</option>
+                            {% for choice in ['A','B','C','D','E','F','G','H','I','J','K','L'] %}
+                            <option value="{{ choice }}">{{ choice }}</option>
+                            {% endfor %}
+                        </select>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+
+        <div class="btn-group">
+            <button type="submit" class="btn btn-primary">Create Assessment</button>
+            <a href="{{ url_for('classrooms.view_classroom', classroom_id=classroom.id) }}" class="btn btn-secondary">Cancel</a>
+        </div>
+    </form>
+</div>
+{% endblock %}

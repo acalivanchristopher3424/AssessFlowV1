@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+
+{% block title %}Classrooms - AssessFlow{% endblock %}
+
+{% block content %}
+<h1>Classrooms</h1>
+<p class="page-subtitle">Manage your classrooms, students, and assessments.</p>
+
+{% if classrooms %}
+    <table>
+        <thead>
+            <tr>
+                <th>Classroom</th>
+                <th>Students</th>
+                <th>Assessments</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+        {% for classroom in classrooms %}
+            <tr>
+                <td><a href="{{ url_for('classrooms.view_classroom', classroom_id=classroom.id) }}">{{ classroom.name }}</a></td>
+                <td>{{ classroom.student_count }}</td>
+                <td>{{ classroom.assessment_count }}</td>
+                <td><a href="{{ url_for('classrooms.view_classroom', classroom_id=classroom.id) }}" class="btn btn-sm btn-secondary">View</a></td>
+            </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+{% else %}
+    <div class="empty-state">
+        <p>No classrooms yet. Create your first classroom to get started.</p>
+    </div>
+{% endif %}
+
+<div class="btn-group">
+    <a href="{{ url_for('classrooms.new_classroom') }}" class="btn btn-primary">Create Classroom</a>
+</div>
+{% endblock %}
