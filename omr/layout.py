@@ -8,6 +8,7 @@ CHOICES = list("ABCDEFGHIJKL")
 STUDENT_ID_DIGITS = 6
 STUDENT_ID_VALUES = list(range(10))
 
+DARK_PIXEL_THRESHOLD = 180
 BUBBLE_RADIUS = 19
 SAMPLE_RADIUS = 9
 
@@ -36,7 +37,7 @@ def get_question_bubble_position(question_number, choice):
 
 
 def get_student_id_bubble_position(digit_position, digit_value):
-    """Return a Student ID bubble; reading marks comes in Milestone 8."""
+    """Return the center point of a Student ID bubble."""
     if not 1 <= digit_position <= STUDENT_ID_DIGITS:
         raise ValueError(f"Student ID position must be between 1 and {STUDENT_ID_DIGITS}.")
     if digit_value not in STUDENT_ID_VALUES:
