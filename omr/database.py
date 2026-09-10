@@ -90,7 +90,7 @@ class AssessFlowDatabase:
             return cursor.lastrowid
 
     def create_student(self, classroom_id, name, student_identifier=None):
-        """Create a student. Student ID OMR will be connected in a later milestone."""
+        """Create a student."""
 
         with self._connect() as connection:
             cursor = connection.execute(
@@ -100,6 +100,25 @@ class AssessFlowDatabase:
                 (classroom_id, name, student_identifier, self._now()),
             )
             return cursor.lastrowid
+
+    def find_student_by_identifier(self, classroom_id, student_identifier):
+        """Find a student by classroom and Student ID OMR identifier.
+
+        Returns the student row as a dict, or None if not found.
+        """
+
+        with self._connect() as connection:
+            row = connection.execute(
+                """SELECT id, classroom_id, name, student_identifier, created_at
+                   FROM students
+                   WHERE classroom_id = ? AND student_identifier = ?""",
+                (classroom_id, student_identifier),
+            ).fetchone()
+
+            if row is None:
+                return None
+
+            return dict(row)
 
     def create_assessment(self, classroom_id, name, answer_key):
         """Create an assessment and persist its answer key by question."""

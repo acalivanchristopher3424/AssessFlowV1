@@ -41,6 +41,34 @@ class AssessFlowDatabaseTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "assessment classroom"):
             self.database.save_grading_result(self.assessment_id, result, other_student)
 
+    def test_find_student_by_identifier_returns_correct_student(self):
+        """find_student_by_identifier returns the correct student in the classroom."""
+        student = self.database.find_student_by_identifier(self.classroom_id, "S-001")
+        self.assertIsNotNone(student)
+        self.assertEqual(student["name"], "Ada Lovelace")
+        self.assertEqual(student["student_identifier"], "S-001")
+        self.assertEqual(student["classroom_id"], self.classroom_id)
+
+    def test_find_student_by_identifier_returns_none_for_unknown(self):
+        """find_student_by_identifier returns None for unknown identifier."""
+        result = self.database.find_student_by_identifier(self.classroom_id, "999999")
+        self.assertIsNone(result)
+
+    def test_find_student_by_identifier_is_classroom_scoped(self):
+        """Same student_identifier in different classroom returns different student."""
+        other_classroom = self.database.create_classroom("Grade 7B")
+        other_student = self.database.create_student(
+            other_classroom, "Bob Smith", "S-001"
+        )
+
+        found_in_a = self.database.find_student_by_identifier(self.classroom_id, "S-001")
+        found_in_b = self.database.find_student_by_identifier(other_classroom, "S-001")
+
+        self.assertIsNotNone(found_in_a)
+        self.assertIsNotNone(found_in_b)
+        self.assertEqual(found_in_a["name"], "Ada Lovelace")
+        self.assertEqual(found_in_b["name"], "Bob Smith")
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -3,10 +3,12 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from omr.bulk_processor import bulk_process, process_scan
+from omr.bulk_processor import bulk_process, bulk_process_with_context, process_scan
+from omr.database import AssessFlowDatabase
 from omr.detect_scan import align_scan, detect_question_answer, load_image
 from omr.generate_sheet import generate_answer_sheet
 from omr.grade_answers import create_grading_result, load_answer_key
+from omr.layout import get_student_id_bubble_position
 
 
 class TestBulkProcessorStatusClassification(unittest.TestCase):
@@ -105,6 +107,89 @@ class TestBulkProcess(unittest.TestCase):
         for r in results:
             self.assertEqual(r["status"], "blank")
             self.assertIsNone(r["score_info"])
+
+
+class TestBulkProcessWithContext(unittest.TestCase):
+    def setUp(self):
+        self.td = tempfile.TemporaryDirectory()
+        self.db_path = Path(self.td.name) / "test.sqlite3"
+        self.database = AssessFlowDatabase(self.db_path)
+        self.database.initialize()
+
+        self.classroom_id = self.database.create_classroom("Grade 7A")
+        self.student_ada = self.database.create_student(
+            self.classroom_id, "Ada Lovelace", "123456"
+        )
+        self.student_grace = self.database.create_student(
+            self.classroom_id, "Grace Hopper", "654321"
+        )
+        self.assessment_id = self.database.create_assessment(
+            self.classroom_id, "Science Quiz", load_answer_key()
+        )
+
+    def tearDown(self):
+        self.td.cleanup()
+
+    def _make_sheet_with_student_id(self, filename, student_id_str):
+        """Generate a sheet and mark the Student ID bubbles."""
+        sheet_path = Path(self.td.name) / filename
+        generate_answer_sheet(sheet_path)
+        image = cv2.imread(str(sheet_path))
+        for i, digit_char in enumerate(student_id_str):
+            position = i + 1
+            value = int(digit_char)
+            x, y = get_student_id_bubble_position(position, value)
+            cv2.circle(image, (x, y), 13, (0, 0, 0), -1)
+        cv2.imwrite(str(sheet_path), image)
+        return sheet_path
+
+    def test_unknown_student_id_returns_unknown_student(self):
+        """Sheet with unknown Student ID returns 'unknown_student' status."""
+        sheet = self._make_sheet_with_student_id("unknown.png", "999999")
+        results = bulk_process_with_context(
+            [sheet], self.database, self.classroom_id, self.assessment_id
+        )
+        self.assertEqual(len(results), 1)
+        self.assertEqual(results[0]["status"], "unknown_student")
+        self.assertIsNone(results[0]["student_id"])
+        self.assertIsNone(results[0]["attempt_id"])
+
+    def test_known_student_id_returns_graded(self):
+        """Sheet with known Student ID returns 'graded' status."""
+        sheet = self._make_sheet_with_student_id("ada.png", "123456")
+        results = bulk_process_with_context(
+            [sheet], self.database, self.classroom_id, self.assessment_id
+        )
+        self.assertEqual(len(results), 1)
+        self.assertEqual(results[0]["status"], "graded")
+        self.assertEqual(results[0]["student_id"], self.student_ada)
+        self.assertIsNotNone(results[0]["attempt_id"])
+        self.assertIsNotNone(results[0]["grading_result"])
+
+    def test_multiple_sheets_with_different_students(self):
+        """Multiple sheets with different Student IDs are correctly associated."""
+        sheet_ada = self._make_sheet_with_student_id("ada.png", "123456")
+        sheet_grace = self._make_sheet_with_student_id("grace.png", "654321")
+        results = bulk_process_with_context(
+            [sheet_ada, sheet_grace],
+            self.database,
+            self.classroom_id,
+            self.assessment_id,
+        )
+        self.assertEqual(len(results), 2)
+        self.assertEqual(results[0]["student_id"], self.student_ada)
+        self.assertEqual(results[1]["student_id"], self.student_grace)
+
+    def test_blank_student_id_returns_unknown_student(self):
+        """Sheet with blank Student ID returns 'unknown_student' status."""
+        blank_sheet = Path(self.td.name) / "blank.png"
+        generate_answer_sheet(blank_sheet)
+        results = bulk_process_with_context(
+            [blank_sheet], self.database, self.classroom_id, self.assessment_id
+        )
+        self.assertEqual(len(results), 1)
+        self.assertEqual(results[0]["status"], "unknown_student")
+        self.assertIsNone(results[0]["student_id"])
 
 
 if __name__ == "__main__":
