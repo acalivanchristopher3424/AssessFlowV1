@@ -324,5 +324,140 @@ class ResultsDashboardTests(unittest.TestCase):
         self.assertEqual(a["avg_percentage"], 100.0)
 
 
+class AssessmentHistoryTests(unittest.TestCase):
+    def setUp(self):
+        self.temporary_directory = tempfile.TemporaryDirectory()
+        self.database = AssessFlowDatabase(Path(self.temporary_directory.name) / "assessflow.sqlite3")
+        self.database.initialize()
+        self.classroom_id = self.database.create_classroom("Grade 7A")
+
+    def tearDown(self):
+        self.temporary_directory.cleanup()
+
+    def _get_history(self, classroom_id=None):
+        """Get assessment history the same way the route does."""
+        with self.database._connect() as connection:
+            if classroom_id:
+                assessments = connection.execute(
+                    """SELECT a.id, a.name, a.question_count, a.created_at,
+                              c.name as classroom_name,
+                              (SELECT COUNT(*) FROM grading_attempts WHERE assessment_id = a.id) as students_graded,
+                              (SELECT ROUND(AVG(score), 1) FROM grading_attempts WHERE assessment_id = a.id) as avg_score,
+                              (SELECT ROUND(AVG(percentage), 1) FROM grading_attempts WHERE assessment_id = a.id) as avg_percentage
+                       FROM assessments a
+                       JOIN classrooms c ON c.id = a.classroom_id
+                       WHERE a.classroom_id = ?
+                       ORDER BY a.created_at DESC""",
+                    (classroom_id,),
+                ).fetchall()
+            else:
+                assessments = connection.execute(
+                    """SELECT a.id, a.name, a.question_count, a.created_at,
+                              c.name as classroom_name,
+                              (SELECT COUNT(*) FROM grading_attempts WHERE assessment_id = a.id) as students_graded,
+                              (SELECT ROUND(AVG(score), 1) FROM grading_attempts WHERE assessment_id = a.id) as avg_score,
+                              (SELECT ROUND(AVG(percentage), 1) FROM grading_attempts WHERE assessment_id = a.id) as avg_percentage
+                       FROM assessments a
+                       JOIN classrooms c ON c.id = a.classroom_id
+                       ORDER BY a.created_at DESC"""
+                ).fetchall()
+            return [dict(a) for a in assessments]
+
+    def test_no_assessments(self):
+        """No assessments returns empty list."""
+        history = self._get_history()
+        self.assertEqual(len(history), 0)
+
+    def test_one_assessment(self):
+        """One assessment appears in history."""
+        self.database.create_assessment(self.classroom_id, "Quiz", {i: "A" for i in range(1, 21)})
+        history = self._get_history()
+        self.assertEqual(len(history), 1)
+        self.assertEqual(history[0]["name"], "Quiz")
+        self.assertEqual(history[0]["question_count"], 20)
+        self.assertEqual(history[0]["classroom_name"], "Grade 7A")
+
+    def test_multiple_assessments_most_recent_first(self):
+        """Multiple assessments sorted most recent first."""
+        self.database.create_assessment(self.classroom_id, "First", {1: "A"})
+        self.database.create_assessment(self.classroom_id, "Second", {1: "A"})
+        self.database.create_assessment(self.classroom_id, "Third", {1: "A"})
+        history = self._get_history()
+        self.assertEqual(len(history), 3)
+        self.assertEqual(history[0]["name"], "Third")
+        self.assertEqual(history[1]["name"], "Second")
+        self.assertEqual(history[2]["name"], "First")
+
+    def test_classroom_filtering(self):
+        """Filtering by classroom returns only that classroom's assessments."""
+        classroom2 = self.database.create_classroom("Grade 7B")
+        self.database.create_assessment(self.classroom_id, "Quiz A", {1: "A"})
+        self.database.create_assessment(classroom2, "Quiz B", {1: "A"})
+        history_a = self._get_history(classroom_id=self.classroom_id)
+        history_b = self._get_history(classroom_id=classroom2)
+        self.assertEqual(len(history_a), 1)
+        self.assertEqual(history_a[0]["name"], "Quiz A")
+        self.assertEqual(len(history_b), 1)
+        self.assertEqual(history_b[0]["name"], "Quiz B")
+
+    def test_correct_question_count(self):
+        """Question count is displayed correctly."""
+        self.database.create_assessment(self.classroom_id, "Quiz 10", {i: "A" for i in range(1, 11)})
+        self.database.create_assessment(self.classroom_id, "Quiz 20", {i: "A" for i in range(1, 21)})
+        self.database.create_assessment(self.classroom_id, "Quiz 50", {i: "A" for i in range(1, 51)})
+        history = self._get_history()
+        counts = {a["name"]: a["question_count"] for a in history}
+        self.assertEqual(counts["Quiz 10"], 10)
+        self.assertEqual(counts["Quiz 20"], 20)
+        self.assertEqual(counts["Quiz 50"], 50)
+
+    def test_assessment_with_no_graded_results(self):
+        """Assessment with no graded results shows 0 students, None averages."""
+        self.database.create_assessment(self.classroom_id, "Quiz", {i: "A" for i in range(1, 21)})
+        history = self._get_history()
+        self.assertEqual(len(history), 1)
+        self.assertEqual(history[0]["students_graded"], 0)
+        self.assertIsNone(history[0]["avg_score"])
+        self.assertIsNone(history[0]["avg_percentage"])
+
+    def test_assessment_with_graded_results(self):
+        """Assessment with graded results shows correct stats."""
+        student = self.database.create_student(self.classroom_id, "Ada", "S-001")
+        assessment_id = self.database.create_assessment(
+            self.classroom_id, "Quiz", {i: "A" for i in range(1, 21)}
+        )
+        answer_key = {i: "A" for i in range(1, 51)}
+        result = create_grading_result({i: "A" for i in range(1, 21)}, answer_key, question_count=20)
+        self.database.save_grading_result(assessment_id, result, student)
+        history = self._get_history()
+        self.assertEqual(len(history), 1)
+        self.assertEqual(history[0]["students_graded"], 1)
+        self.assertEqual(history[0]["avg_score"], 20.0)
+        self.assertEqual(history[0]["avg_percentage"], 100.0)
+
+    def test_average_score_multiple_students(self):
+        """Average score is correct with multiple students."""
+        student1 = self.database.create_student(self.classroom_id, "Ada", "S-001")
+        student2 = self.database.create_student(self.classroom_id, "Grace", "S-002")
+        assessment_id = self.database.create_assessment(
+            self.classroom_id, "Quiz", {i: "A" for i in range(1, 21)}
+        )
+        answer_key = {i: "A" for i in range(1, 51)}
+        result1 = create_grading_result({i: "A" for i in range(1, 21)}, answer_key, question_count=20)
+        self.database.save_grading_result(assessment_id, result1, student1)
+        result2 = create_grading_result({}, answer_key, question_count=20)
+        self.database.save_grading_result(assessment_id, result2, student2)
+        history = self._get_history()
+        self.assertEqual(history[0]["students_graded"], 2)
+        self.assertEqual(history[0]["avg_score"], 10.0)
+        self.assertEqual(history[0]["avg_percentage"], 50.0)
+
+    def test_created_at_date_shown(self):
+        """Assessment shows created_at date."""
+        self.database.create_assessment(self.classroom_id, "Quiz", {1: "A"})
+        history = self._get_history()
+        self.assertIsNotNone(history[0]["created_at"])
+
+
 if __name__ == "__main__":
     unittest.main()
