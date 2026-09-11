@@ -1,0 +1,4 @@
+#!/bin/bash
+# AssessFlow .app launcher — delegates to the .command script
+DIR="$(cd "$(dirname "$0")/../../.." && pwd)"
+open "$DIR/AssessFlow.command"
