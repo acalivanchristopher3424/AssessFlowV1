@@ -50,12 +50,23 @@ DARK_PIXEL_THRESHOLD = 180
 
 # A bubble needs at least this much shading to be considered
 # a possible marked bubble.
-MIN_MARK_SCORE = 0.45
+MIN_MARK_SCORE = 0.40
 
 
 # The bubble must also be sufficiently darker than the
 # background level of the other bubbles.
 MIN_BACKGROUND_GAP = 0.12
+
+
+# ============================================================
+# ROBUST BUBBLE SAMPLING
+# ============================================================
+
+# When sampling a bubble, search within this radius for the
+# darkest point and sample there. This handles marks that
+# are offset from the expected bubble center due to
+# hand-marking variation.
+BUBBLE_SEARCH_RADIUS = 25
 
 
 # ============================================================
@@ -484,10 +495,91 @@ def calculate_bubble_shading(
     center_y,
 ):
     """
-    Measure shading inside the center of the bubble.
+    Measure shading inside a bubble, robust to mark offset.
+
+    First samples at the expected center. If the shading is
+    in the ambiguous zone (near the detection threshold),
+    searches within BUBBLE_SEARCH_RADIUS for the darkest
+    point and re-samples there. This handles marks that are
+    shifted from the expected bubble center due to normal
+    hand-marking variation.
+
+    The search is skipped when standard shading is very low
+    (clearly blank) to avoid picking up adjacent labels or
+    features.
     """
 
     radius = SAMPLE_RADIUS
+
+    # --------------------------------------------------------
+    # Standard shading at the expected center.
+    # --------------------------------------------------------
+
+    standard = _sample_shading(
+        gray, center_x, center_y, radius
+    )
+
+    # --------------------------------------------------------
+    # If standard shading is very low, the bubble is clearly
+    # blank. Skip the wider search to avoid picking up
+    # adjacent labels or text on the answer sheet.
+    # --------------------------------------------------------
+
+    if standard < 0.10:
+        return standard
+
+    # --------------------------------------------------------
+    # Search for the darkest pixel within the search radius.
+    # This catches marks that are offset from the expected
+    # center due to hand-marking variation.
+    # --------------------------------------------------------
+
+    sr = BUBBLE_SEARCH_RADIUS
+
+    y1 = max(0, center_y - sr)
+    y2 = min(gray.shape[0], center_y + sr + 1)
+    x1 = max(0, center_x - sr)
+    x2 = min(gray.shape[1], center_x + sr + 1)
+
+    region = gray[y1:y2, x1:x2]
+
+    if region.size == 0:
+        return standard
+
+    min_loc = np.unravel_index(
+        region.argmin(), region.shape
+    )
+
+    dark_x = x1 + min_loc[1]
+    dark_y = y1 + min_loc[0]
+
+    # --------------------------------------------------------
+    # If the darkest point is essentially at the center,
+    # the standard result is already optimal.
+    # --------------------------------------------------------
+
+    offset = np.sqrt(
+        (dark_x - center_x) ** 2
+        +
+        (dark_y - center_y) ** 2
+    )
+
+    if offset < 3:
+        return standard
+
+    # --------------------------------------------------------
+    # Sample shading at the darkest point.
+    # --------------------------------------------------------
+
+    at_darkest = _sample_shading(
+        gray, dark_x, dark_y, radius
+    )
+
+    return max(standard, at_darkest)
+
+
+def _sample_shading(gray, center_x, center_y, radius):
+    """Sample shading at a specific point (internal helper)."""
 
     x1 = center_x - radius
     y1 = center_y - radius
