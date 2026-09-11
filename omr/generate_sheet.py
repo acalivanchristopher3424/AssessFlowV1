@@ -60,6 +60,8 @@ def generate_answer_sheet(output_file=OUTPUT_FILE):
             bubble_x, bubble_y = get_student_id_bubble_position(position, digit)
             if position == 1:
                 draw_text(image, str(digit), (550, bubble_y + 6), font_scale=0.55, thickness=1)
+            else:
+                draw_text(image, str(digit), (bubble_x - 28, bubble_y + 6), font_scale=0.55, thickness=1)
             cv2.circle(image, (bubble_x, bubble_y), BUBBLE_RADIUS, (0, 0, 0), 2)
 
     draw_text(image, "ANSWERS — shade ONE answer per question.", (MARGIN, 1120), font_scale=0.8, thickness=2)
