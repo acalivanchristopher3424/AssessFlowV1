@@ -1,0 +1,119 @@
+{% extends "base.html" %}
+
+{% block title %}Import Classroom - AssessFlow{% endblock %}
+
+{% block breadcrumbs %}
+<div class="breadcrumbs">
+    <a href="{{ url_for('classrooms.list_classrooms') }}">Classrooms</a>
+    <span class="sep">&rsaquo;</span>
+    <span>Import Classroom</span>
+</div>
+{% endblock %}
+
+{% block content %}
+<h1>Import Classroom</h1>
+
+{% if result is defined and result %}
+    {# ============================================ #}
+    {# PREVIEW / RESULTS                            #}
+    {# ============================================ #}
+
+    {% if result.valid %}
+        <div class="section-card">
+            <div class="section-card-header">
+                <h2 style="margin:0; border:none; padding:0;">Preview Import</h2>
+            </div>
+
+            <p><strong>Classroom:</strong> {{ result.classroom_name }}</p>
+            <p><strong>Students found:</strong> {{ result.students|length }}</p>
+
+            <table>
+                <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>Student Name</th>
+                        <th>Student ID</th>
+                    </tr>
+                </thead>
+                <tbody>
+                {% for student in result.students %}
+                    <tr>
+                        <td>{{ loop.index }}</td>
+                        <td>{{ student.student_name }}</td>
+                        <td>{{ student.student_id }}</td>
+                    </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+
+            <form method="POST" enctype="multipart/form-data" style="margin-top: 1rem;">
+                <input type="hidden" name="confirm" value="yes">
+                <input type="hidden" name="csv_file_hash" value="">
+                <div class="btn-group">
+                    <button type="submit" class="btn btn-primary">Confirm Import</button>
+                    <a href="{{ url_for('classrooms.import_classroom') }}" class="btn btn-secondary">Back</a>
+                </div>
+            </form>
+        </div>
+
+    {% else %}
+        <div class="section-card">
+            <div class="section-card-header">
+                <h2 style="margin:0; border:none; padding:0;">Validation Errors</h2>
+            </div>
+
+            <p><strong>{{ filename }}</strong></p>
+
+            {% if result.warnings %}
+                <div class="alert alert-warning">
+                    {% for warning in result.warnings %}
+                        <p>{{ warning }}</p>
+                    {% endfor %}
+                </div>
+            {% endif %}
+
+            <div class="alert alert-error">
+                {% for error in result.errors %}
+                    <p>&#10007; {{ error }}</p>
+                {% endfor %}
+            </div>
+
+            <p>Please fix the issues in your CSV file and try again.</p>
+
+            <div class="btn-group">
+                <a href="{{ url_for('classrooms.import_classroom') }}" class="btn btn-primary">Try Again</a>
+                <a href="{{ url_for('classrooms.list_classrooms') }}" class="btn btn-secondary">Cancel</a>
+            </div>
+        </div>
+    {% endif %}
+
+{% else %}
+    {# ============================================ #}
+    {# UPLOAD FORM                                  #}
+    {# ============================================ #}
+
+    <div class="section-card">
+        <div class="section-card-header">
+            <h2 style="margin:0; border:none; padding:0;">Upload CSV File</h2>
+        </div>
+
+        <p>Select a CSV file with classroom and student information.</p>
+
+        <form method="POST" enctype="multipart/form-data">
+            <div class="form-group">
+                <label for="csv_file">CSV File</label>
+                <input type="file" id="csv_file" name="csv_file" accept=".csv" required>
+                <p class="help-text">
+                    Required columns: classroom_name, student_id, student_name
+                </p>
+            </div>
+
+            <div class="btn-group">
+                <button type="submit" class="btn btn-primary">Upload and Validate</button>
+                <a href="{{ url_for('classrooms.download_template') }}" class="btn btn-secondary">Download Template</a>
+                <a href="{{ url_for('classrooms.list_classrooms') }}" class="btn btn-secondary">Cancel</a>
+            </div>
+        </form>
+    </div>
+{% endif %}
+{% endblock %}

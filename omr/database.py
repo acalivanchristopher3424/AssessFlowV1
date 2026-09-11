@@ -300,6 +300,77 @@ class AssessFlowDatabase:
                 "questions": [dict(question) for question in questions],
             }
 
+    def get_classroom(self, classroom_id):
+        """Get a classroom by ID. Returns a dict or None."""
+
+        with self._connect() as connection:
+            row = connection.execute(
+                "SELECT id, name, created_at FROM classrooms WHERE id = ?",
+                (classroom_id,),
+            ).fetchone()
+            return dict(row) if row else None
+
+    def get_classroom_by_name(self, name):
+        """Get a classroom by name. Returns a dict or None."""
+
+        with self._connect() as connection:
+            row = connection.execute(
+                "SELECT id, name, created_at FROM classrooms WHERE name = ?",
+                (name,),
+            ).fetchone()
+            return dict(row) if row else None
+
+    def get_classroom_students(self, classroom_id):
+        """Get all students in a classroom, ordered by name."""
+
+        with self._connect() as connection:
+            rows = connection.execute(
+                """SELECT id, classroom_id, name, student_identifier, created_at
+                   FROM students
+                   WHERE classroom_id = ?
+                   ORDER BY name""",
+                (classroom_id,),
+            ).fetchall()
+            return [dict(row) for row in rows]
+
+    def import_classroom(self, classroom_name, students):
+        """Atomically create a classroom and all its students.
+
+        Args:
+            classroom_name: The classroom name (must be unique).
+            students: List of dicts with 'student_id' and 'student_name' keys.
+
+        Returns:
+            The new classroom ID.
+
+        Raises:
+            ValueError: If the classroom name already exists.
+        """
+        existing = self.get_classroom_by_name(classroom_name)
+        if existing is not None:
+            raise ValueError(
+                f"Classroom '{classroom_name}' already exists."
+            )
+
+        with self._connect() as connection:
+            cursor = connection.execute(
+                "INSERT INTO classrooms (name, created_at) VALUES (?, ?)",
+                (classroom_name, self._now()),
+            )
+            classroom_id = cursor.lastrowid
+
+            connection.executemany(
+                """INSERT INTO students
+                   (classroom_id, name, student_identifier, created_at)
+                   VALUES (?, ?, ?, ?)""",
+                [
+                    (classroom_id, s["student_name"], s["student_id"], self._now())
+                    for s in students
+                ],
+            )
+
+            return classroom_id
+
     @contextmanager
     def _connect(self):
         connection = sqlite3.connect(self.database_file)
