@@ -459,5 +459,286 @@ class AssessmentHistoryTests(unittest.TestCase):
         self.assertIsNotNone(history[0]["created_at"])
 
 
+class StudentPerformanceTests(unittest.TestCase):
+    def setUp(self):
+        self.temporary_directory = tempfile.TemporaryDirectory()
+        self.database = AssessFlowDatabase(Path(self.temporary_directory.name) / "assessflow.sqlite3")
+        self.database.initialize()
+        self.classroom_id = self.database.create_classroom("Grade 7A")
+        self.student_id = self.database.create_student(self.classroom_id, "Alice", "S-001")
+
+    def tearDown(self):
+        self.temporary_directory.cleanup()
+
+    def _get_student_performance(self, classroom_id, student_id):
+        """Get student performance the same way the route does."""
+        with self.database._connect() as connection:
+            attempts = connection.execute(
+                """SELECT ga.id, ga.score, ga.percentage, ga.correct_count, ga.wrong_count,
+                          ga.blank_count, ga.multiple_count, ga.graded_at,
+                          a.name as assessment_name, a.question_count
+                   FROM grading_attempts ga
+                   JOIN assessments a ON a.id = ga.assessment_id
+                   WHERE ga.student_id = ? AND ga.assessment_id IN (
+                       SELECT id FROM assessments WHERE classroom_id = ?
+                   )
+                   ORDER BY ga.graded_at DESC""",
+                (student_id, classroom_id),
+            ).fetchall()
+
+            stats = connection.execute(
+                """SELECT
+                      COUNT(*) as assessments_taken,
+                      ROUND(AVG(percentage), 1) as avg_percentage,
+                      MAX(percentage) as highest_percentage,
+                      MIN(percentage) as lowest_percentage
+                   FROM grading_attempts
+                   WHERE student_id = ? AND assessment_id IN (
+                       SELECT id FROM assessments WHERE classroom_id = ?
+                   )""",
+                (student_id, classroom_id),
+            ).fetchone()
+
+        return [dict(a) for a in attempts], dict(stats) if stats else None
+
+    def test_student_with_no_results(self):
+        """Student with no graded assessments has empty attempts and 0 stats."""
+        attempts, stats = self._get_student_performance(self.classroom_id, self.student_id)
+        self.assertEqual(len(attempts), 0)
+        self.assertEqual(stats["assessments_taken"], 0)
+        self.assertIsNone(stats["avg_percentage"])
+        self.assertIsNone(stats["highest_percentage"])
+        self.assertIsNone(stats["lowest_percentage"])
+
+    def test_student_with_one_result(self):
+        """Student with one graded assessment shows correct data."""
+        assessment_id = self.database.create_assessment(
+            self.classroom_id, "Quiz", {i: "A" for i in range(1, 21)}
+        )
+        answer_key = {i: "A" for i in range(1, 51)}
+        result = create_grading_result({i: "A" for i in range(1, 21)}, answer_key, question_count=20)
+        self.database.save_grading_result(assessment_id, result, self.student_id)
+
+        attempts, stats = self._get_student_performance(self.classroom_id, self.student_id)
+        self.assertEqual(len(attempts), 1)
+        self.assertEqual(attempts[0]["assessment_name"], "Quiz")
+        self.assertEqual(attempts[0]["question_count"], 20)
+        self.assertEqual(attempts[0]["score"], 20)
+        self.assertEqual(attempts[0]["percentage"], 100.0)
+        self.assertEqual(stats["assessments_taken"], 1)
+        self.assertEqual(stats["avg_percentage"], 100.0)
+        self.assertEqual(stats["highest_percentage"], 100.0)
+        self.assertEqual(stats["lowest_percentage"], 100.0)
+
+    def test_student_with_multiple_results(self):
+        """Student with multiple graded assessments shows correct stats."""
+        assessment1 = self.database.create_assessment(
+            self.classroom_id, "Quiz 1", {i: "A" for i in range(1, 21)}
+        )
+        assessment2 = self.database.create_assessment(
+            self.classroom_id, "Quiz 2", {i: "A" for i in range(1, 21)}
+        )
+        answer_key = {i: "A" for i in range(1, 51)}
+
+        result1 = create_grading_result({i: "A" for i in range(1, 21)}, answer_key, question_count=20)
+        self.database.save_grading_result(assessment1, result1, self.student_id)
+
+        result2 = create_grading_result({i: "A" for i in range(1, 11)}, answer_key, question_count=20)
+        self.database.save_grading_result(assessment2, result2, self.student_id)
+
+        attempts, stats = self._get_student_performance(self.classroom_id, self.student_id)
+        self.assertEqual(len(attempts), 2)
+        self.assertEqual(stats["assessments_taken"], 2)
+        self.assertEqual(stats["avg_percentage"], 75.0)
+        self.assertEqual(stats["highest_percentage"], 100.0)
+        self.assertEqual(stats["lowest_percentage"], 50.0)
+
+    def test_variable_question_count_20(self):
+        """20-question assessment score is out of 20."""
+        assessment_id = self.database.create_assessment(
+            self.classroom_id, "Quiz 20", {i: "A" for i in range(1, 21)}
+        )
+        answer_key = {i: "A" for i in range(1, 51)}
+        result = create_grading_result({i: "A" for i in range(1, 19)}, answer_key, question_count=20)
+        self.database.save_grading_result(assessment_id, result, self.student_id)
+
+        attempts, _ = self._get_student_performance(self.classroom_id, self.student_id)
+        self.assertEqual(attempts[0]["score"], 18)
+        self.assertEqual(attempts[0]["question_count"], 20)
+        self.assertEqual(attempts[0]["percentage"], 90.0)
+
+    def test_variable_question_count_50(self):
+        """50-question assessment score is out of 50."""
+        assessment_id = self.database.create_assessment(
+            self.classroom_id, "Quiz 50", {i: "A" for i in range(1, 51)}
+        )
+        answer_key = {i: "A" for i in range(1, 51)}
+        result = create_grading_result({i: "A" for i in range(1, 43)}, answer_key, question_count=50)
+        self.database.save_grading_result(assessment_id, result, self.student_id)
+
+        attempts, _ = self._get_student_performance(self.classroom_id, self.student_id)
+        self.assertEqual(attempts[0]["score"], 42)
+        self.assertEqual(attempts[0]["question_count"], 50)
+        self.assertEqual(attempts[0]["percentage"], 84.0)
+
+    def test_multiple_assessments_sorted_newest_first(self):
+        """Assessment attempts are sorted by graded_at descending."""
+        assessment1 = self.database.create_assessment(
+            self.classroom_id, "First", {1: "A"}
+        )
+        assessment2 = self.database.create_assessment(
+            self.classroom_id, "Second", {1: "A"}
+        )
+        answer_key = {i: "A" for i in range(1, 51)}
+
+        result1 = create_grading_result({1: "A"}, answer_key, question_count=1)
+        self.database.save_grading_result(assessment1, result1, self.student_id)
+
+        result2 = create_grading_result({1: "A"}, answer_key, question_count=1)
+        self.database.save_grading_result(assessment2, result2, self.student_id)
+
+        attempts, _ = self._get_student_performance(self.classroom_id, self.student_id)
+        self.assertEqual(len(attempts), 2)
+        self.assertEqual(attempts[0]["assessment_name"], "Second")
+        self.assertEqual(attempts[1]["assessment_name"], "First")
+
+    def test_classroom_scoped_results(self):
+        """Student results are scoped to their classroom."""
+        classroom2 = self.database.create_classroom("Grade 7B")
+        student2 = self.database.create_student(classroom2, "Bob", "S-001")
+
+        assessment1 = self.database.create_assessment(
+            self.classroom_id, "Quiz A", {1: "A"}
+        )
+        assessment2 = self.database.create_assessment(
+            classroom2, "Quiz B", {1: "A"}
+        )
+        answer_key = {i: "A" for i in range(1, 51)}
+
+        result1 = create_grading_result({1: "A"}, answer_key, question_count=1)
+        self.database.save_grading_result(assessment1, result1, self.student_id)
+
+        result2 = create_grading_result({1: "A"}, answer_key, question_count=1)
+        self.database.save_grading_result(assessment2, result2, student2)
+
+        attempts_a, stats_a = self._get_student_performance(self.classroom_id, self.student_id)
+        attempts_b, stats_b = self._get_student_performance(classroom2, student2)
+
+        self.assertEqual(len(attempts_a), 1)
+        self.assertEqual(attempts_a[0]["assessment_name"], "Quiz A")
+        self.assertEqual(stats_a["assessments_taken"], 1)
+
+        self.assertEqual(len(attempts_b), 1)
+        self.assertEqual(attempts_b[0]["assessment_name"], "Quiz B")
+        self.assertEqual(stats_b["assessments_taken"], 1)
+
+    def test_same_student_id_different_classrooms(self):
+        """Same student ID in different classrooms are separate records."""
+        classroom2 = self.database.create_classroom("Grade 7B")
+        student2 = self.database.create_student(classroom2, "Alice", "S-001")
+
+        assessment1 = self.database.create_assessment(
+            self.classroom_id, "Quiz A", {i: "A" for i in range(1, 21)}
+        )
+        assessment2 = self.database.create_assessment(
+            classroom2, "Quiz B", {i: "A" for i in range(1, 21)}
+        )
+        answer_key = {i: "A" for i in range(1, 51)}
+
+        result1 = create_grading_result({i: "A" for i in range(1, 21)}, answer_key, question_count=20)
+        self.database.save_grading_result(assessment1, result1, self.student_id)
+
+        result2 = create_grading_result({}, answer_key, question_count=20)
+        self.database.save_grading_result(assessment2, result2, student2)
+
+        attempts1, stats1 = self._get_student_performance(self.classroom_id, self.student_id)
+        attempts2, stats2 = self._get_student_performance(classroom2, student2)
+
+        self.assertEqual(attempts1[0]["percentage"], 100.0)
+        self.assertEqual(attempts2[0]["percentage"], 0.0)
+
+    def test_unknown_and_failed_attempts_excluded(self):
+        """Unknown student (student_id=None) attempts are not included."""
+        assessment_id = self.database.create_assessment(
+            self.classroom_id, "Quiz", {1: "A"}
+        )
+        answer_key = {i: "A" for i in range(1, 51)}
+
+        result_unknown = create_grading_result({1: "A"}, answer_key, question_count=1)
+        self.database.save_grading_result(assessment_id, result_unknown, student_id=None)
+
+        result_known = create_grading_result({1: "A"}, answer_key, question_count=1)
+        self.database.save_grading_result(assessment_id, result_known, self.student_id)
+
+        attempts, stats = self._get_student_performance(self.classroom_id, self.student_id)
+        self.assertEqual(len(attempts), 1)
+        self.assertEqual(stats["assessments_taken"], 1)
+
+    def test_zero_percentage_included(self):
+        """Student with 0% result is correctly included in stats."""
+        assessment_id = self.database.create_assessment(
+            self.classroom_id, "Quiz", {i: "A" for i in range(1, 21)}
+        )
+        answer_key = {i: "A" for i in range(1, 51)}
+        result = create_grading_result({}, answer_key, question_count=20)
+        self.database.save_grading_result(assessment_id, result, self.student_id)
+
+        attempts, stats = self._get_student_performance(self.classroom_id, self.student_id)
+        self.assertEqual(len(attempts), 1)
+        self.assertEqual(attempts[0]["score"], 0)
+        self.assertEqual(attempts[0]["percentage"], 0.0)
+        self.assertEqual(stats["avg_percentage"], 0.0)
+        self.assertEqual(stats["highest_percentage"], 0.0)
+        self.assertEqual(stats["lowest_percentage"], 0.0)
+
+
+class ClassroomStudentsViewTests(unittest.TestCase):
+    def setUp(self):
+        self.temporary_directory = tempfile.TemporaryDirectory()
+        self.database = AssessFlowDatabase(Path(self.temporary_directory.name) / "assessflow.sqlite3")
+        self.database.initialize()
+        self.classroom_id = self.database.create_classroom("Grade 7A")
+        self.student_id = self.database.create_student(self.classroom_id, "Alice", "S-001")
+        self.student_id2 = self.database.create_student(self.classroom_id, "Bob", "S-002")
+
+    def tearDown(self):
+        self.temporary_directory.cleanup()
+
+    def _get_classroom_students_page(self):
+        """Get the classroom view page and extract the Students section."""
+        import sys
+        sys.path.insert(0, str(Path(__file__).parent.parent))
+        from web import create_app
+        app = create_app({"DATABASE": self.database.database_file})
+        with app.test_client() as client:
+            return client.get(f"/classrooms/{self.classroom_id}").data.decode()
+
+    def test_classroom_view_has_view_results_for_each_student(self):
+        """Classroom Students section contains View Results link for each student."""
+        html = self._get_classroom_students_page()
+        self.assertIn("View Results", html)
+        self.assertIn(f"/classrooms/{self.classroom_id}/students/{self.student_id}", html)
+        self.assertIn(f"/classrooms/{self.classroom_id}/students/{self.student_id2}", html)
+
+    def test_classroom_view_view_results_links_to_student_performance(self):
+        """Each View Results link points to the student performance page."""
+        html = self._get_classroom_students_page()
+        self.assertIn(f"/classrooms/{self.classroom_id}/students/{self.student_id}", html)
+        self.assertIn(f"/classrooms/{self.classroom_id}/students/{self.student_id2}", html)
+
+    def test_classroom_view_preserves_existing_student_info(self):
+        """Classroom view still shows student names and IDs."""
+        html = self._get_classroom_students_page()
+        self.assertIn("Alice", html)
+        self.assertIn("S-001", html)
+        self.assertIn("Bob", html)
+        self.assertIn("S-002", html)
+
+    def test_classroom_view_preserves_add_student_button(self):
+        """Classroom view still has the + Add Student button."""
+        html = self._get_classroom_students_page()
+        self.assertIn("+ Add Student", html)
+
+
 if __name__ == "__main__":
     unittest.main()

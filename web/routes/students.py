@@ -29,6 +29,68 @@ def list_students(classroom_id):
     )
 
 
+@students_bp.route("/classrooms/<int:classroom_id>/students/<int:student_id>")
+def student_performance(classroom_id, student_id):
+    """Show an individual student's performance and assessment history."""
+    with current_app.db._connect() as connection:
+        classroom = connection.execute(
+            "SELECT id, name FROM classrooms WHERE id = ?",
+            (classroom_id,),
+        ).fetchone()
+        if classroom is None:
+            flash("Classroom not found.", "error")
+            return redirect(url_for("classrooms.list_classrooms"))
+
+        student = connection.execute(
+            "SELECT id, name, student_identifier FROM students WHERE id = ? AND classroom_id = ?",
+            (student_id, classroom_id),
+        ).fetchone()
+        if student is None:
+            flash("Student not found.", "error")
+            return redirect(url_for("students.list_students", classroom_id=classroom_id))
+
+        attempts = connection.execute(
+            """SELECT ga.id, ga.assessment_id, ga.score, ga.percentage, ga.correct_count, ga.wrong_count,
+                      ga.blank_count, ga.multiple_count, ga.graded_at,
+                      a.name as assessment_name, a.question_count
+               FROM grading_attempts ga
+               JOIN assessments a ON a.id = ga.assessment_id
+               WHERE ga.student_id = ? AND ga.assessment_id IN (
+                   SELECT id FROM assessments WHERE classroom_id = ?
+               )
+               ORDER BY ga.graded_at DESC""",
+            (student_id, classroom_id),
+        ).fetchall()
+
+        stats = connection.execute(
+            """SELECT
+                  COUNT(*) as assessments_taken,
+                  ROUND(AVG(percentage), 1) as avg_percentage,
+                  MAX(percentage) as highest_percentage,
+                  MIN(percentage) as lowest_percentage
+               FROM grading_attempts
+               WHERE student_id = ? AND assessment_id IN (
+                   SELECT id FROM assessments WHERE classroom_id = ?
+               )""",
+            (student_id, classroom_id),
+        ).fetchone()
+
+    stats_dict = dict(stats) if stats else {
+        "assessments_taken": 0,
+        "avg_percentage": None,
+        "highest_percentage": None,
+        "lowest_percentage": None,
+    }
+
+    return render_template(
+        "students/performance.html",
+        classroom=dict(classroom),
+        student=dict(student),
+        attempts=[dict(a) for a in attempts],
+        stats=stats_dict,
+    )
+
+
 @students_bp.route("/classrooms/<int:classroom_id>/students/new", methods=["GET", "POST"])
 def new_student(classroom_id):
     """Add a student to a classroom."""

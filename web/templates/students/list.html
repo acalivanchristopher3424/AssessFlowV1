@@ -27,6 +27,7 @@
                 <tr>
                     <th>Student Name</th>
                     <th>Student ID</th>
+                    <th></th>
                 </tr>
             </thead>
             <tbody>
@@ -34,6 +35,7 @@
                 <tr>
                     <td>{{ student.name }}</td>
                     <td>{{ student.student_identifier or '-' }}</td>
+                    <td><a href="{{ url_for('students.student_performance', classroom_id=classroom.id, student_id=student.id) }}" class="btn btn-sm btn-secondary">View Results</a></td>
                 </tr>
             {% endfor %}
             </tbody>

@@ -1,0 +1,94 @@
+{% extends "base.html" %}
+
+{% block title %}{{ student.name }} - Student Performance - AssessFlow{% endblock %}
+
+{% block breadcrumbs %}
+<div class="breadcrumbs">
+    <a href="{{ url_for('classrooms.list_classrooms') }}">Classrooms</a>
+    <span class="sep">&rsaquo;</span>
+    <a href="{{ url_for('classrooms.view_classroom', classroom_id=classroom.id) }}">{{ classroom.name }}</a>
+    <span class="sep">&rsaquo;</span>
+    <a href="{{ url_for('students.list_students', classroom_id=classroom.id) }}">Students</a>
+    <span class="sep">&rsaquo;</span>
+    <span>{{ student.name }}</span>
+</div>
+{% endblock %}
+
+{% block content %}
+<h1>{{ student.name }}</h1>
+<p class="page-subtitle">
+    Student ID: {{ student.student_identifier or 'N/A' }}
+    &middot;
+    Classroom: {{ classroom.name }}
+</p>
+
+{% if stats.assessments_taken > 0 %}
+    <div class="summary-row">
+        <div class="summary-card">
+            <div class="label">Assessments Taken</div>
+            <div class="value">{{ stats.assessments_taken }}</div>
+        </div>
+        <div class="summary-card">
+            <div class="label">Average Percentage</div>
+            <div class="value">{{ stats.avg_percentage }}%</div>
+        </div>
+        <div class="summary-card">
+            <div class="label">Highest Score</div>
+            <div class="value">{{ stats.highest_percentage }}%</div>
+        </div>
+        <div class="summary-card">
+            <div class="label">Lowest Score</div>
+            <div class="value">{{ stats.lowest_percentage }}%</div>
+        </div>
+    </div>
+
+    <div class="section-card">
+        <div class="section-card-header">
+            <h2 style="margin:0; border:none; padding:0;">Assessment Results</h2>
+        </div>
+
+        <table>
+            <thead>
+                <tr>
+                    <th>Assessment</th>
+                    <th>Questions</th>
+                    <th>Score</th>
+                    <th>Percentage</th>
+                    <th>Correct</th>
+                    <th>Wrong</th>
+                    <th>Blank</th>
+                    <th>Multiple</th>
+                    <th>Date</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+            {% for attempt in attempts %}
+                <tr>
+                    <td><a href="{{ url_for('results.list_results', assessment_id=attempt.assessment_id) }}">{{ attempt.assessment_name }}</a></td>
+                    <td>{{ attempt.question_count }}</td>
+                    <td>{{ attempt.score }} / {{ attempt.question_count }}</td>
+                    <td>{{ attempt.percentage }}%</td>
+                    <td>{{ attempt.correct_count }}</td>
+                    <td>{{ attempt.wrong_count }}</td>
+                    <td>{{ attempt.blank_count }}</td>
+                    <td>{{ attempt.multiple_count }}</td>
+                    <td>{{ attempt.graded_at[:10] }}</td>
+                    <td><a href="{{ url_for('results.view_result', attempt_id=attempt.id) }}" class="btn btn-sm btn-secondary">View Details</a></td>
+                </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+{% else %}
+    <div class="empty-state">
+        <p>No graded assessments yet.</p>
+        <p>Results will appear after this student completes an assessment and the answer sheet is graded.</p>
+    </div>
+{% endif %}
+
+<div class="btn-group">
+    <a href="{{ url_for('students.list_students', classroom_id=classroom.id) }}" class="btn btn-secondary">Back to Students</a>
+    <a href="{{ url_for('classrooms.view_classroom', classroom_id=classroom.id) }}" class="btn btn-secondary">Back to Classroom</a>
+</div>
+{% endblock %}
