@@ -138,7 +138,7 @@ def bulk_process_with_context(
     For each scan:
     1. Detect Student ID from the scanned sheet
     2. Look up the student in the database (classroom-scoped)
-    3. Grade the answers
+    3. Grade the answers using the assessment's answer key from the database
     4. Save the grading result linked to the student
 
     Returns a list of per-sheet result dicts with:
@@ -149,6 +149,10 @@ def bulk_process_with_context(
         - grading_result: dict or None
     """
     results = []
+
+    assessment_answer_key = database.get_assessment_answer_key(assessment_id)
+    assessment = database.get_assessment(assessment_id)
+    question_count = assessment["question_count"] if assessment else None
 
     for input_file in input_files:
 
@@ -183,9 +187,11 @@ def bulk_process_with_context(
             continue
 
         try:
-            assessment = database.get_assessment(assessment_id)
-            question_count = assessment["question_count"] if assessment else None
-            grading_result = grade_scan(input_file, question_count=question_count)
+            grading_result = grade_scan(
+                input_file,
+                answer_key=assessment_answer_key,
+                question_count=question_count,
+            )
         except Exception:
             grading_result = None
 

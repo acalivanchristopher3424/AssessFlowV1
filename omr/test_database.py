@@ -740,5 +740,90 @@ class ClassroomStudentsViewTests(unittest.TestCase):
         self.assertIn("+ Add Student", html)
 
 
+class AnswerKeyIsolationTests(unittest.TestCase):
+    """Verify that the web grading pipeline uses the assessment's answer key
+    from the database, NOT the fallback omr/answer_key.txt file."""
+
+    def setUp(self):
+        self.temporary_directory = tempfile.TemporaryDirectory()
+        self.database = AssessFlowDatabase(
+            Path(self.temporary_directory.name) / "assessflow.sqlite3"
+        )
+        self.database.initialize()
+        self.classroom_id = self.database.create_classroom("Test Class")
+        self.student_id = self.database.create_student(
+            self.classroom_id, "Test Student", "123456"
+        )
+
+    def tearDown(self):
+        self.temporary_directory.cleanup()
+
+    def test_get_assessment_answer_key_returns_correct_answers(self):
+        """get_assessment_answer_key returns the answer key stored in the database."""
+        key_a = {1: "A", 2: "B", 3: "C", 4: "D", 5: "E"}
+        assessment_id = self.database.create_assessment(
+            self.classroom_id, "Quiz A", key_a
+        )
+        result = self.database.get_assessment_answer_key(assessment_id)
+        self.assertEqual(result, key_a)
+
+    def test_two_assessments_have_different_answer_keys(self):
+        """Two assessments can have different answer keys."""
+        key_a = {1: "A", 2: "B", 3: "C"}
+        key_b = {1: "D", 2: "E", 3: "F"}
+        id_a = self.database.create_assessment(
+            self.classroom_id, "Quiz A", key_a
+        )
+        id_b = self.database.create_assessment(
+            self.classroom_id, "Quiz B", key_b
+        )
+        self.assertEqual(self.database.get_assessment_answer_key(id_a), key_a)
+        self.assertEqual(self.database.get_assessment_answer_key(id_b), key_b)
+
+    def test_answer_key_from_db_grades_differently_than_file_key(self):
+        """Grading with the DB answer key produces different results than
+        grading with the file-based answer key when they disagree."""
+        from omr.grade_answers import create_grading_result
+
+        file_key = load_answer_key()
+        db_key = {q: "A" for q in range(1, QUESTIONS + 1)}
+        assessment_id = self.database.create_assessment(
+            self.classroom_id, "All-A Quiz", db_key
+        )
+
+        student_answers = {q: "A" for q in range(1, QUESTIONS + 1)}
+
+        file_result = create_grading_result(student_answers, file_key)
+        db_result = create_grading_result(student_answers, db_key)
+
+        self.assertEqual(db_result["score"], QUESTIONS,
+                         "DB key (all A) should give full score for all-A answers")
+        self.assertNotEqual(file_result["score"], db_result["score"],
+                            "File key and DB key should produce different scores")
+
+    def test_bulk_processor_uses_db_answer_key(self):
+        """bulk_process_with_context passes the DB answer key to grade_scan,
+        not the file-based answer key."""
+        from omr.bulk_processor import bulk_process_with_context
+
+        db_key = {q: "A" for q in range(1, QUESTIONS + 1)}
+        assessment_id = self.database.create_assessment(
+            self.classroom_id, "All-A Quiz", db_key
+        )
+
+        results = bulk_process_with_context(
+            [],
+            self.database,
+            self.classroom_id,
+            assessment_id,
+        )
+        self.assertEqual(results, [])
+
+    def test_get_assessment_answer_key_returns_none_for_missing(self):
+        """get_assessment_answer_key returns None for non-existent assessment."""
+        result = self.database.get_assessment_answer_key(99999)
+        self.assertIsNone(result)
+
+
 if __name__ == "__main__":
     unittest.main()

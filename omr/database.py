@@ -139,6 +139,28 @@ class AssessFlowDatabase:
 
             return dict(row)
 
+    def get_assessment_answer_key(self, assessment_id):
+        """Get the answer key for an assessment as {question_number: answer}.
+
+        Returns a dict mapping question numbers to correct answers,
+        or None if the assessment does not exist.
+        """
+
+        with self._connect() as connection:
+            rows = connection.execute(
+                """SELECT question_number, correct_answer
+                   FROM assessment_questions
+                   WHERE assessment_id = ?
+                   ORDER BY question_number""",
+                (assessment_id,),
+            ).fetchall()
+
+            if not rows:
+                return None
+
+            return {row["question_number"]: row["correct_answer"]
+                    for row in rows}
+
     def create_assessment(self, classroom_id, name, answer_key):
         """Create an assessment and persist its answer key by question."""
 

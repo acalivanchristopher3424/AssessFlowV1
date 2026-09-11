@@ -1,5 +1,6 @@
 """AssessFlow V1 web application."""
 
+import os
 from pathlib import Path
 
 from flask import Flask
@@ -16,7 +17,10 @@ def create_app(config=None):
     )
 
     app.config.from_mapping(
-        SECRET_KEY="assessflow-dev-key",
+        SECRET_KEY=os.environ.get(
+            "SECRET_KEY",
+            "assessflow-local-dev-key-change-in-production",
+        ),
         DATABASE=Path(app.instance_path) / "assessflow.db",
         UPLOAD_FOLDER=Path(app.root_path).parent / "uploads",
         MAX_CONTENT_LENGTH=50 * 1024 * 1024,
