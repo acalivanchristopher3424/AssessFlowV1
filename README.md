@@ -8,7 +8,61 @@ and grades against the answer key.
 
 AssessFlow runs entirely on your computer. No internet connection is required.
 
-## Starting AssessFlow
+## Standalone Application (macOS)
+
+The recommended way to run AssessFlow is the standalone macOS application.
+
+### How to launch
+
+1. Copy **`AssessFlow.app`** to your Applications folder (or anywhere convenient).
+2. Double-click **AssessFlow.app**.
+3. Your browser opens automatically to `http://127.0.0.1:5001`.
+4. AssessFlow is ready to use.
+
+No Python installation, virtual environment, or Terminal commands are needed.
+
+### How to stop
+
+- Close the browser tab.
+- Quit AssessFlow from the dock (right-click > Quit), or
+- The server stops automatically when the application is closed.
+
+### Where data is stored (packaged app)
+
+| Data | Location |
+|------|----------|
+| Database | `~/Library/Application Support/AssessFlow/assessflow.db` |
+| Uploaded scans | `~/Library/Application Support/AssessFlow/uploads/` |
+| Secret key | `~/Library/Application Support/AssessFlow/.secret_key` |
+
+This directory is created automatically on first launch. Your data persists
+across app updates — reinstalling AssessFlow does not delete your database
+or uploaded files.
+
+### Building from source
+
+If you have the source code and want to build the standalone app:
+
+```bash
+# Set up the development environment
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+pip install pyinstaller
+
+# Build the macOS .app
+pyinstaller AssessFlow.spec --noconfirm
+```
+
+The built application appears in `dist/AssessFlow.app`.
+
+**Note:** macOS may warn that the app is from an unidentified developer on
+first launch. Right-click the app and select "Open" to bypass Gatekeeper.
+Code signing will be addressed in a future milestone.
+
+**Note:** Windows standalone packaging will be handled in M19.3.
+
+## Development Mode
 
 ### Double-click to launch (recommended)
 
@@ -17,7 +71,9 @@ AssessFlow runs entirely on your computer. No internet connection is required.
 3. Your browser opens automatically to `http://127.0.0.1:5001`.
 4. AssessFlow is ready to use.
 
-You can also double-click **`AssessFlow.app`** — it does the same thing.
+You can also double-click **`AssessFlow.app`** in the project folder — it
+does the same thing (this is the development launcher, separate from the
+standalone PyInstaller build).
 
 ### What happens on launch
 
@@ -43,7 +99,7 @@ scans) is preserved. Restarting AssessFlow does not erase anything.
 - **"Took too long to start"** — Another process may be using port 5001.
   Close other applications and try again.
 
-## Developer Setup
+### Command-line development
 
 ```bash
 # Activate the virtual environment
@@ -56,15 +112,24 @@ FLASK_DEBUG=1 python run.py
 python -m pytest omr/ -v
 ```
 
-## Where Data Is Stored
+## Data Storage
+
+### Development mode
 
 | Data | Location |
 |------|----------|
 | Database | `instance/assessflow.db` |
 | Uploaded scans | `uploads/` |
 
-These directories are created automatically on first run and are never
-deleted by the application.
+### Standalone app
+
+| Data | Location |
+|------|----------|
+| Database | `~/Library/Application Support/AssessFlow/assessflow.db` |
+| Uploaded scans | `~/Library/Application Support/AssessFlow/uploads/` |
+
+Directories are created automatically on first run and are never deleted
+by the application.
 
 ## Environment Variables
 

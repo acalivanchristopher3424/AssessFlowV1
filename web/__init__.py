@@ -1,15 +1,22 @@
 """AssessFlow V1 web application."""
 
-import os
-from pathlib import Path
-
 from flask import Flask
 
+from omr.app_config import (
+    get_database_path,
+    get_upload_folder,
+    get_or_create_secret_key,
+    ensure_data_dirs,
+    is_frozen,
+)
 from omr.database import AssessFlowDatabase
 
 
 def create_app(config=None):
     """Create and configure the Flask application."""
+
+    # Ensure writable data directories exist.
+    ensure_data_dirs()
 
     app = Flask(
         __name__,
@@ -17,20 +24,14 @@ def create_app(config=None):
     )
 
     app.config.from_mapping(
-        SECRET_KEY=os.environ.get(
-            "SECRET_KEY",
-            "assessflow-local-dev-key-change-in-production",
-        ),
-        DATABASE=Path(app.instance_path) / "assessflow.db",
-        UPLOAD_FOLDER=Path(app.root_path).parent / "uploads",
+        SECRET_KEY=get_or_create_secret_key(),
+        DATABASE=get_database_path(),
+        UPLOAD_FOLDER=get_upload_folder(),
         MAX_CONTENT_LENGTH=50 * 1024 * 1024,
     )
 
     if config:
         app.config.from_mapping(config)
-
-    Path(app.instance_path).mkdir(parents=True, exist_ok=True)
-    Path(app.config["UPLOAD_FOLDER"]).mkdir(parents=True, exist_ok=True)
 
     db = AssessFlowDatabase(app.config["DATABASE"])
     db.initialize()
