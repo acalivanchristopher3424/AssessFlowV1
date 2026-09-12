@@ -6,9 +6,6 @@ __pycache__/
 instance/
 uploads/
 *.db
-samples/aligned_scan.png
-samples/scan_result.png
-samples/detected_answers.png
 .pytest_cache/
 build/
 dist/

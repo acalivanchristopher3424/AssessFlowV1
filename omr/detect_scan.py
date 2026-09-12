@@ -96,18 +96,21 @@ PROJECT_DIR = Path(__file__).resolve().parent.parent
 
 DEFAULT_INPUT = (
     PROJECT_DIR
+    / "resources"
     / "samples"
-    / "answer_sheet.png"
+    / "my_scan.jpeg"
 )
 
 ALIGNED_FILE = (
     PROJECT_DIR
+    / "resources"
     / "samples"
     / "aligned_scan.png"
 )
 
 OUTPUT_FILE = (
     PROJECT_DIR
+    / "resources"
     / "samples"
     / "scan_result.png"
 )

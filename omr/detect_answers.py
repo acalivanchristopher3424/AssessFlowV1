@@ -13,8 +13,8 @@ except ImportError:
 
 
 PROJECT_DIR = Path(__file__).resolve().parent.parent
-INPUT_FILE = PROJECT_DIR / "samples" / "answer_sheet.png"
-OUTPUT_FILE = PROJECT_DIR / "samples" / "detected_answers.png"
+INPUT_FILE = PROJECT_DIR / "resources" / "answer_sheets" / "AssessFlow_V1_Answer_Sheet.png"
+OUTPUT_FILE = PROJECT_DIR / "resources" / "samples" / "detected_answers.png"
 
 
 def detect_answers(input_file=INPUT_FILE, output_file=OUTPUT_FILE):

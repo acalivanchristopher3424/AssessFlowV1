@@ -145,3 +145,14 @@ by the application.
 - **OpenCV + NumPy** — OMR scan detection
 - **SQLite** — local database
 - **Local filesystem** — uploaded scan storage
+
+## Reference Materials
+
+| Directory | Contents |
+|-----------|----------|
+| `resources/samples/` | OMR scan images used during development and testing |
+| `resources/answer_sheets/` | Final approved AssessFlow V1 answer sheet (PNG) |
+
+These are reference materials for development and testing. They are not
+required for normal packaged-app operation and are not bundled into
+AssessFlow.app.

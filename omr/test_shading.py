@@ -130,7 +130,7 @@ class LightMarkDetectionTests(unittest.TestCase):
         from .student_id import detect_student_id
 
         scan_file = (
-            PROJECT_DIR / "samples" / "my_scan_3.jpg"
+            PROJECT_DIR / "resources" / "samples" / "my_scan_3.jpg"
         )
         if not scan_file.exists():
             self.skipTest(

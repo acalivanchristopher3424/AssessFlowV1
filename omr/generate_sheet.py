@@ -14,8 +14,8 @@ except ImportError:
 
 
 MARGIN = 180
-OUTPUT_DIR = Path(__file__).resolve().parent.parent / "samples"
-OUTPUT_FILE = OUTPUT_DIR / "answer_sheet.png"
+OUTPUT_DIR = Path(__file__).resolve().parent.parent / "resources" / "answer_sheets"
+OUTPUT_FILE = OUTPUT_DIR / "AssessFlow_V1_Answer_Sheet.png"
 
 
 def draw_text(image, text, position, font_scale=1.0, thickness=2):
