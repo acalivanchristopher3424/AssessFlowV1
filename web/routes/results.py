@@ -1,6 +1,8 @@
-"""Results viewing routes."""
+"""Results viewing and export routes."""
 
-from flask import Blueprint, render_template, redirect, url_for, flash, current_app
+from flask import Blueprint, render_template, redirect, url_for, flash, current_app, Response
+
+from omr.csv_handler import export_results_csv, generate_results_filename
 
 results_bp = Blueprint("results", __name__)
 
@@ -97,4 +99,51 @@ def view_result(attempt_id):
         "results/view.html",
         result=result,
         assessment=dict(assessment) if assessment else None,
+    )
+
+
+@results_bp.route("/assessments/<int:assessment_id>/results/export")
+def export_assessment_results(assessment_id):
+    """Export all graded results for an assessment as CSV."""
+    assessment = current_app.db.get_assessment(assessment_id)
+    if assessment is None:
+        flash("Assessment not found.", "error")
+        return redirect(url_for("classrooms.list_classrooms"))
+
+    with current_app.db._connect() as connection:
+        classroom = connection.execute(
+            "SELECT name FROM classrooms WHERE id = ?",
+            (assessment["classroom_id"],),
+        ).fetchone()
+
+    classroom_name = classroom["name"] if classroom else "Unknown"
+    rows = current_app.db.get_assessment_export_rows(assessment_id)
+
+    filename = generate_results_filename(classroom_name, assessment["name"])
+    csv_bytes = export_results_csv(rows)
+
+    return Response(
+        csv_bytes,
+        mimetype="text/csv; charset=utf-8",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
+
+@results_bp.route("/classrooms/<int:classroom_id>/results/export")
+def export_classroom_results(classroom_id):
+    """Export all graded results for a classroom as CSV."""
+    classroom = current_app.db.get_classroom(classroom_id)
+    if classroom is None:
+        flash("Classroom not found.", "error")
+        return redirect(url_for("classrooms.list_classrooms"))
+
+    rows = current_app.db.get_classroom_export_rows(classroom_id)
+
+    filename = generate_results_filename(classroom["name"])
+    csv_bytes = export_results_csv(rows)
+
+    return Response(
+        csv_bytes,
+        mimetype="text/csv; charset=utf-8",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
     )

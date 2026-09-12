@@ -371,6 +371,60 @@ class AssessFlowDatabase:
 
             return classroom_id
 
+    # ------------------------------------------------------------------
+    # Results export queries
+    # ------------------------------------------------------------------
+
+    _EXPORT_QUERY = """
+        SELECT
+            c.name AS classroom,
+            s.student_identifier AS student_id,
+            s.name AS student_name,
+            a.name AS assessment,
+            a.question_count AS question_count,
+            ga.score AS score,
+            ga.percentage AS percentage,
+            ga.wrong_count AS wrong,
+            ga.blank_count AS blank,
+            ga.multiple_count AS multiple,
+            SUBSTR(ga.graded_at, 1, 10) AS date
+        FROM grading_attempts ga
+        JOIN assessments a ON a.id = ga.assessment_id
+        JOIN classrooms c ON c.id = a.classroom_id
+        JOIN students s ON s.id = ga.student_id
+    """
+
+    def get_assessment_export_rows(self, assessment_id):
+        """Return export-ready rows for one assessment."""
+
+        with self._connect() as connection:
+            rows = connection.execute(
+                self._EXPORT_QUERY + " WHERE ga.assessment_id = ? ORDER BY s.name",
+                (assessment_id,),
+            ).fetchall()
+            return [dict(row) for row in rows]
+
+    def get_classroom_export_rows(self, classroom_id):
+        """Return export-ready rows for all assessments in a classroom."""
+
+        with self._connect() as connection:
+            rows = connection.execute(
+                self._EXPORT_QUERY + " WHERE a.classroom_id = ? ORDER BY a.name, s.name",
+                (classroom_id,),
+            ).fetchall()
+            return [dict(row) for row in rows]
+
+    def get_student_export_rows(self, classroom_id, student_id):
+        """Return export-ready rows for one student in one classroom."""
+
+        with self._connect() as connection:
+            rows = connection.execute(
+                self._EXPORT_QUERY
+                + " WHERE ga.student_id = ? AND a.classroom_id = ? ORDER BY ga.graded_at",
+                (student_id, classroom_id),
+            ).fetchall()
+            return [dict(row) for row in rows]
+
     @contextmanager
     def _connect(self):
         connection = sqlite3.connect(self.database_file)

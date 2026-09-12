@@ -2,7 +2,7 @@
 
 from flask import (
     Blueprint, render_template, request, redirect,
-    url_for, flash, current_app, Response,
+    url_for, flash, current_app, Response, session,
 )
 
 from omr.csv_handler import (
@@ -92,16 +92,25 @@ def import_classroom():
     """Import a classroom from a CSV file."""
     if request.method == "POST":
         # --------------------------------------------------
-        # Step 1: Get uploaded file.
+        # Step 1: Get uploaded file or retrieve from session.
         # --------------------------------------------------
+        confirm = request.form.get("confirm")
         file = request.files.get("csv_file")
-        if not file or file.filename == "":
-            flash("Please select a CSV file.", "error")
-            return render_template("classrooms/import.html")
 
-        csv_content = file.read()
-        if not csv_content:
-            flash("The uploaded file is empty.", "error")
+        if file and file.filename != "":
+            csv_content = file.read()
+            if not csv_content:
+                flash("The uploaded file is empty.", "error")
+                return render_template("classrooms/import.html")
+            filename = file.filename
+        elif confirm == "yes":
+            csv_content = session.pop("import_csv_content", None)
+            if csv_content is None:
+                flash("Please select a CSV file.", "error")
+                return render_template("classrooms/import.html")
+            filename = session.pop("import_csv_filename", "")
+        else:
+            flash("Please select a CSV file.", "error")
             return render_template("classrooms/import.html")
 
         # --------------------------------------------------
@@ -119,7 +128,6 @@ def import_classroom():
         # --------------------------------------------------
         # Step 3: If confirmation requested, create records.
         # --------------------------------------------------
-        confirm = request.form.get("confirm")
         if confirm == "yes" and result["valid"]:
             try:
                 classroom_id = current_app.db.import_classroom(
@@ -144,11 +152,16 @@ def import_classroom():
 
         # --------------------------------------------------
         # Step 4: Show preview or errors.
+        # Store CSV content in session for confirmation step.
         # --------------------------------------------------
+        if result["valid"]:
+            session["import_csv_content"] = csv_content
+            session["import_csv_filename"] = filename
+
         return render_template(
             "classrooms/import.html",
             result=result,
-            filename=file.filename,
+            filename=filename,
         )
 
     return render_template("classrooms/import.html")

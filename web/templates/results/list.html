@@ -92,7 +92,8 @@
 </div>
 
 <div class="btn-group">
-    <a href="{{ url_for('grading.grade_scans', assessment_id=assessment.id) }}" class="btn btn-primary">Upload More Scans</a>
+    <a href="{{ url_for('results.export_assessment_results', assessment_id=assessment.id) }}" class="btn btn-primary">Export Results</a>
+    <a href="{{ url_for('grading.grade_scans', assessment_id=assessment.id) }}" class="btn btn-secondary">Upload More Scans</a>
     <a href="{{ url_for('assessments.view_assessment', assessment_id=assessment.id) }}" class="btn btn-secondary">Back to Assessment</a>
 </div>
 {% endblock %}

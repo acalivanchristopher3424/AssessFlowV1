@@ -67,6 +67,7 @@
 </div>
 
 <div class="btn-group">
+    <a href="{{ url_for('results.export_classroom_results', classroom_id=classroom.id) }}" class="btn btn-primary">Export Results</a>
     <a href="{{ url_for('classrooms.view_classroom', classroom_id=classroom.id) }}" class="btn btn-secondary">Back to Classroom</a>
 </div>
 {% endblock %}

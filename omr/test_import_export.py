@@ -328,5 +328,207 @@ class ClassroomImportTests(unittest.TestCase):
                 )
 
 
+# ============================================================
+# Import workflow integration tests (Flask test client)
+# ============================================================
+
+
+class ImportWorkflowTests(unittest.TestCase):
+    """Tests for the full upload → preview → confirm workflow."""
+
+    def setUp(self):
+        import tempfile
+        from pathlib import Path
+        from web import create_app
+
+        self.temporary_directory = tempfile.TemporaryDirectory()
+        db_path = Path(self.temporary_directory.name) / "test.sqlite3"
+        self.app = create_app({
+            "TESTING": True,
+            "SECRET_KEY": "test-key",
+            "DATABASE": db_path,
+        })
+        self.client = self.app.test_client()
+
+    def tearDown(self):
+        self.temporary_directory.cleanup()
+
+    def _upload_csv(self, csv_content, confirm=None):
+        """Upload a CSV and optionally confirm the import."""
+        import io
+        data = {}
+        if csv_content is not None:
+            data["csv_file"] = (io.BytesIO(csv_content.encode("utf-8")), "test.csv")
+        if confirm:
+            data["confirm"] = "yes"
+        return self.client.post(
+            "/classrooms/import",
+            data=data,
+            content_type="multipart/form-data",
+            follow_redirects=False,
+        )
+
+    def test_upload_and_preview(self):
+        """A valid CSV shows the preview page."""
+        csv = "classroom_name,student_id,student_name\nPreview Test,123456,Alice\n"
+        resp = self._upload_csv(csv)
+        html = resp.data.decode()
+        self.assertEqual(resp.status_code, 200)
+        self.assertIn("Preview Import", html)
+        self.assertIn("Alice", html)
+        self.assertIn("Confirm Import", html)
+
+    def test_confirm_creates_classroom(self):
+        """Confirming a valid preview creates the classroom."""
+        csv = (
+            "classroom_name,student_id,student_name\n"
+            "Confirm Test,123456,Alice\n"
+            "Confirm Test,234567,Bob\n"
+        )
+        # Step 1: upload → preview
+        resp = self._upload_csv(csv)
+        self.assertIn("Preview Import", resp.data.decode())
+
+        # Step 2: confirm
+        resp = self._upload_csv(csv, confirm="yes")
+        self.assertEqual(resp.status_code, 302)
+        self.assertIn("/classrooms/", resp.headers["Location"])
+
+        # Verify classroom exists
+        with self.app.db._connect() as conn:
+            row = conn.execute(
+                "SELECT id, name FROM classrooms WHERE name = 'Confirm Test'"
+            ).fetchone()
+            self.assertIsNotNone(row)
+
+    def test_confirm_creates_all_students(self):
+        """Confirming creates all students from the CSV."""
+        csv = (
+            "classroom_name,student_id,student_name\n"
+            "Students Test,123456,Alice\n"
+            "Students Test,234567,Bob\n"
+            "Students Test,345678,Charlie\n"
+        )
+        self._upload_csv(csv)
+        self._upload_csv(csv, confirm="yes")
+
+        with self.app.db._connect() as conn:
+            classroom = conn.execute(
+                "SELECT id FROM classrooms WHERE name = 'Students Test'"
+            ).fetchone()
+            self.assertIsNotNone(classroom)
+            students = conn.execute(
+                "SELECT name FROM students WHERE classroom_id = ?",
+                (classroom["id"],),
+            ).fetchall()
+            self.assertEqual(len(students), 3)
+
+    def test_student_id_leading_zeros_preserved(self):
+        """Student ID 012345 is preserved as text, not converted to integer."""
+        csv = (
+            "classroom_name,student_id,student_name\n"
+            "Leading Zero Test,012345,Fhebe\n"
+        )
+        self._upload_csv(csv)
+        self._upload_csv(csv, confirm="yes")
+
+        with self.app.db._connect() as conn:
+            classroom = conn.execute(
+                "SELECT id FROM classrooms WHERE name = 'Leading Zero Test'"
+            ).fetchone()
+            self.assertIsNotNone(classroom)
+            student = conn.execute(
+                "SELECT student_identifier FROM students WHERE classroom_id = ?",
+                (classroom["id"],),
+            ).fetchone()
+            self.assertEqual(student["student_identifier"], "012345")
+
+    def test_no_file_shows_error(self):
+        """Submitting without a file shows an error."""
+        resp = self._upload_csv(None)
+        html = resp.data.decode()
+        self.assertEqual(resp.status_code, 200)
+        self.assertIn("Please select a CSV file", html)
+
+    def test_confirm_without_session_data_shows_error(self):
+        """Confirming without a prior preview session shows an error."""
+        resp = self._upload_csv(None, confirm="yes")
+        html = resp.data.decode()
+        self.assertEqual(resp.status_code, 200)
+        self.assertIn("Please select a CSV file", html)
+
+    def test_validation_errors_still_shown(self):
+        """Invalid CSV still shows validation errors on preview."""
+        csv = "student_id,student_name\n123456,Alice\n"
+        resp = self._upload_csv(csv)
+        html = resp.data.decode()
+        self.assertIn("Validation Errors", html)
+
+    def test_existing_classroom_rejected(self):
+        """Importing a CSV with an existing classroom name shows error."""
+        with self.app.db._connect() as conn:
+            conn.execute(
+                "INSERT INTO classrooms (name, created_at) VALUES (?, ?)",
+                ("Existing Class", "2026-01-01 00:00:00"),
+            )
+            conn.commit()
+        csv = (
+            "classroom_name,student_id,student_name\n"
+            "Existing Class,123456,Alice\n"
+        )
+        resp = self._upload_csv(csv)
+        html = resp.data.decode()
+        self.assertIn("already exists", html)
+
+    def test_full_export_edit_import_roundtrip(self):
+        """Export → edit name → import creates a new classroom."""
+        # Create original classroom via import
+        csv = (
+            "classroom_name,student_id,student_name\n"
+            "Roundtrip Original,123456,Alice\n"
+            "Roundtrip Original,234567,Bob\n"
+        )
+        self._upload_csv(csv)
+        resp = self._upload_csv(csv, confirm="yes")
+        self.assertEqual(resp.status_code, 302)
+
+        # Find the classroom ID
+        with self.app.db._connect() as conn:
+            row = conn.execute(
+                "SELECT id FROM classrooms WHERE name = 'Roundtrip Original'"
+            ).fetchone()
+            classroom_id = row["id"]
+
+        # Export it
+        resp = self.client.get(f"/classrooms/{classroom_id}/export")
+        exported = resp.data.decode()
+        self.assertIn("Roundtrip Original", exported)
+
+        # Edit the name in the exported CSV
+        edited = exported.replace("Roundtrip Original", "Roundtrip New Name")
+        # Import the edited CSV
+        import io
+        data = {
+            "csv_file": (io.BytesIO(edited.encode("utf-8")), "edited.csv"),
+        }
+        resp = self.client.post(
+            "/classrooms/import",
+            data=data,
+            content_type="multipart/form-data",
+            follow_redirects=False,
+        )
+        self.assertIn("Preview Import", resp.data.decode())
+
+        # Confirm without re-uploading file (uses session data — the bug scenario)
+        resp = self.client.post(
+            "/classrooms/import",
+            data={"confirm": "yes"},
+            content_type="multipart/form-data",
+            follow_redirects=False,
+        )
+        self.assertEqual(resp.status_code, 302)
+        self.assertIn("/classrooms/", resp.headers["Location"])
+
+
 if __name__ == "__main__":
     unittest.main()

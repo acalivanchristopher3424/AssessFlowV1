@@ -88,6 +88,7 @@
 {% endif %}
 
 <div class="btn-group">
+    <a href="{{ url_for('students.export_student_results', classroom_id=classroom.id, student_id=student.id) }}" class="btn btn-primary">Export Results</a>
     <a href="{{ url_for('students.list_students', classroom_id=classroom.id) }}" class="btn btn-secondary">Back to Students</a>
     <a href="{{ url_for('classrooms.view_classroom', classroom_id=classroom.id) }}" class="btn btn-secondary">Back to Classroom</a>
 </div>

@@ -1,6 +1,8 @@
 """Student management routes."""
 
-from flask import Blueprint, render_template, request, redirect, url_for, flash, current_app
+from flask import Blueprint, render_template, request, redirect, url_for, flash, current_app, Response
+
+from omr.csv_handler import export_results_csv, generate_results_filename
 
 students_bp = Blueprint("students", __name__)
 
@@ -119,3 +121,35 @@ def new_student(classroom_id):
             flash(f"Error adding student: {e}", "error")
 
     return render_template("students/new.html", classroom=dict(classroom))
+
+
+@students_bp.route("/classrooms/<int:classroom_id>/students/<int:student_id>/export")
+def export_student_results(classroom_id, student_id):
+    """Export one student's assessment results as CSV."""
+    with current_app.db._connect() as connection:
+        classroom = connection.execute(
+            "SELECT id, name FROM classrooms WHERE id = ?",
+            (classroom_id,),
+        ).fetchone()
+        if classroom is None:
+            flash("Classroom not found.", "error")
+            return redirect(url_for("classrooms.list_classrooms"))
+
+        student = connection.execute(
+            "SELECT id, name FROM students WHERE id = ? AND classroom_id = ?",
+            (student_id, classroom_id),
+        ).fetchone()
+        if student is None:
+            flash("Student not found.", "error")
+            return redirect(url_for("students.list_students", classroom_id=classroom_id))
+
+    rows = current_app.db.get_student_export_rows(classroom_id, student_id)
+
+    filename = generate_results_filename(student["name"], classroom["name"])
+    csv_bytes = export_results_csv(rows)
+
+    return Response(
+        csv_bytes,
+        mimetype="text/csv; charset=utf-8",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )

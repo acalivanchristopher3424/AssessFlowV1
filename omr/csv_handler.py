@@ -1,4 +1,4 @@
-"""CSV parsing and validation for classroom import."""
+"""CSV parsing, validation, and export for AssessFlow."""
 
 import csv
 import io
@@ -232,3 +232,76 @@ def export_classroom_csv(classroom_name, students):
             s.get("name") or "",
         ])
     return output.getvalue()
+
+
+# ============================================================
+# Results export
+# ============================================================
+
+RESULTS_HEADERS = [
+    "classroom",
+    "student_id",
+    "student_name",
+    "assessment",
+    "question_count",
+    "score",
+    "percentage",
+    "wrong",
+    "blank",
+    "multiple",
+    "date",
+]
+
+BOM = "\ufeff"
+
+
+def export_results_csv(rows):
+    """Generate a UTF-8 CSV with BOM for grading results.
+
+    Args:
+        rows: List of dicts, each with keys matching RESULTS_HEADERS.
+
+    Returns:
+        A UTF-8 encoded bytes object with BOM prefix.
+    """
+    output = io.StringIO()
+    writer = csv.DictWriter(output, fieldnames=RESULTS_HEADERS)
+    writer.writeheader()
+    for row in rows:
+        writer.writerow({
+            "classroom": row.get("classroom", ""),
+            "student_id": row.get("student_id", ""),
+            "student_name": row.get("student_name", ""),
+            "assessment": row.get("assessment", ""),
+            "question_count": row.get("question_count", ""),
+            "score": row.get("score", ""),
+            "percentage": row.get("percentage", ""),
+            "wrong": row.get("wrong", ""),
+            "blank": row.get("blank", ""),
+            "multiple": row.get("multiple", ""),
+            "date": row.get("date", ""),
+        })
+    return (BOM + output.getvalue()).encode("utf-8")
+
+
+def generate_results_filename(*parts):
+    """Build a safe CSV filename for results export.
+
+    Args:
+        *parts: Variable number of strings to join (e.g. classroom, assessment).
+
+    Returns:
+        A filesystem-safe filename like 'AssessFlow_Grade7A_Midterm_Results.csv'.
+    """
+    safe_parts = []
+    for part in parts:
+        clean = str(part)
+        for ch in r'\/:*?"<>|':
+            clean = clean.replace(ch, "-")
+        clean = clean.strip(". ")
+        if clean:
+            safe_parts.append(clean)
+    name = "_".join(safe_parts) if safe_parts else ""
+    if name:
+        return f"AssessFlow_{name}_Results.csv"
+    return "AssessFlow_Results.csv"
